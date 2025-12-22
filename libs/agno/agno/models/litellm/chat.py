@@ -233,10 +233,22 @@ class LiteLLM(Model):
 
         assistant_message.metrics.start_timer()
 
-        for chunk in self.get_client().completion(**completion_kwargs):
-            yield self._parse_provider_response_delta(chunk)
+        try:
+            for chunk in self.get_client().completion(**completion_kwargs):
+                yield self._parse_provider_response_delta(chunk)
 
-        assistant_message.metrics.stop_timer()
+            assistant_message.metrics.stop_timer()
+        except Exception as e:
+            # Check if this is a Litellm validation error for empty/invalid function name
+            # This can happen when the model returns a malformed tool call
+            error_msg = str(e)
+            if "Function name" in error_msg and "must be a-z" in error_msg:
+                log_warning(f"Model returned an invalid tool call. Treating as termination condition: {e}")
+                # Don't re-raise - treat as end of tool call loop
+                return
+            
+            log_error(f"Error in streaming response: {e}")
+            raise
 
     async def ainvoke(
         self,
@@ -295,6 +307,14 @@ class LiteLLM(Model):
             assistant_message.metrics.stop_timer()
 
         except Exception as e:
+            # Check if this is a Litellm validation error for empty/invalid function name
+            # This can happen when the model returns a malformed tool call
+            error_msg = str(e)
+            if "Function name" in error_msg and "must be a-z" in error_msg:
+                log_warning(f"Model returned an invalid tool call. Treating as termination condition: {e}")
+                # Don't re-raise - treat as end of tool call loop
+                return
+            
             log_error(f"Error in streaming response: {e}")
             raise
 
