@@ -243,8 +243,12 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as termination condition: {e}")
-                # Don't re-raise - treat as end of tool call loop
+                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
+                # Create an empty ModelResponse to properly end the stream
+                # This allows the tool call loop to continue naturally
+                empty_response = ModelResponse()
+                yield empty_response
+                assistant_message.metrics.stop_timer()
                 return
             
             log_error(f"Error in streaming response: {e}")
@@ -311,8 +315,12 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as termination condition: {e}")
-                # Don't re-raise - treat as end of tool call loop
+                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
+                # Create an empty ModelResponse to properly end the stream
+                # This allows the tool call loop to continue naturally
+                empty_response = ModelResponse()
+                yield empty_response
+                assistant_message.metrics.stop_timer()
                 return
             
             log_error(f"Error in streaming response: {e}")
