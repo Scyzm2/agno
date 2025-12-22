@@ -244,11 +244,15 @@ class LiteLLM(Model):
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create an empty ModelResponse to properly end the stream
-                # This allows the tool call loop to continue naturally
-                empty_response = ModelResponse()
+                # Create a ModelResponse with empty content and no tool calls
+                # This signals to the base model that the tool call loop should end
+                empty_response = ModelResponse(content="")
+                # Explicitly set tool_calls to empty list to indicate no more tool calls
+                empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
+                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
+                assistant_message.tool_calls = []
                 return
             
             log_error(f"Error in streaming response: {e}")
@@ -316,11 +320,15 @@ class LiteLLM(Model):
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create an empty ModelResponse to properly end the stream
-                # This allows the tool call loop to continue naturally
-                empty_response = ModelResponse()
+                # Create a ModelResponse with empty content and no tool calls
+                # This signals to the base model that the tool call loop should end
+                empty_response = ModelResponse(content="")
+                # Explicitly set tool_calls to empty list to indicate no more tool calls
+                empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
+                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
+                assistant_message.tool_calls = []
                 return
             
             log_error(f"Error in streaming response: {e}")
