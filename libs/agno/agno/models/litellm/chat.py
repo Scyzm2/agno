@@ -255,6 +255,21 @@ class LiteLLM(Model):
                 assistant_message.tool_calls = []
                 return
             
+            # Check if this is a LiteLLM error about add_generation_prompt
+            # This can happen when the last message is from the assistant
+            if "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
+                log_warning(f"LiteLLM error with add_generation_prompt. Retrying without it: {e}")
+                # Remove add_generation_prompt from completion_kwargs and retry
+                completion_kwargs.pop("add_generation_prompt", None)
+                completion_kwargs.pop("continue_final_message", None)
+                
+                # Retry the completion without add_generation_prompt
+                for chunk in self.get_client().completion(**completion_kwargs):
+                    yield self._parse_provider_response_delta(chunk)
+                
+                assistant_message.metrics.stop_timer()
+                return
+            
             log_error(f"Error in streaming response: {e}")
             raise
 
@@ -329,6 +344,22 @@ class LiteLLM(Model):
                 assistant_message.metrics.stop_timer()
                 # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
                 assistant_message.tool_calls = []
+                return
+            
+            # Check if this is a LiteLLM error about add_generation_prompt
+            # This can happen when the last message is from the assistant
+            if "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
+                log_warning(f"LiteLLM error with add_generation_prompt. Retrying without it: {e}")
+                # Remove add_generation_prompt from completion_kwargs and retry
+                completion_kwargs.pop("add_generation_prompt", None)
+                completion_kwargs.pop("continue_final_message", None)
+                
+                # Retry the completion without add_generation_prompt
+                async_stream = await self.get_client().acompletion(**completion_kwargs)
+                async for chunk in async_stream:
+                    yield self._parse_provider_response_delta(chunk)
+                
+                assistant_message.metrics.stop_timer()
                 return
             
             log_error(f"Error in streaming response: {e}")
