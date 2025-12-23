@@ -251,8 +251,6 @@ class LiteLLM(Model):
                 empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
-                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
-                assistant_message.tool_calls = []
                 return
             
             # Check if this is a LiteLLM error about add_generation_prompt
@@ -266,8 +264,6 @@ class LiteLLM(Model):
                 empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
-                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
-                assistant_message.tool_calls = []
                 return
             
             log_error(f"Error in streaming response: {e}")
@@ -342,8 +338,6 @@ class LiteLLM(Model):
                 empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
-                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
-                assistant_message.tool_calls = []
                 return
             
             # Check if this is a LiteLLM error about add_generation_prompt
@@ -357,8 +351,6 @@ class LiteLLM(Model):
                 empty_response.tool_calls = []
                 yield empty_response
                 assistant_message.metrics.stop_timer()
-                # Also set tool_calls on the assistant_message to ensure the base model breaks the loop
-                assistant_message.tool_calls = []
                 return
             
             log_error(f"Error in streaming response: {e}")
