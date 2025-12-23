@@ -247,8 +247,14 @@ class LiteLLM(Model):
                 # Add a continuation prompt to the messages to allow the LLM to respond properly
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
                 
+                # Recreate completion_kwargs with the updated messages
+                retry_kwargs = self.get_request_params(tools=tools if tools else None)
+                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
+                retry_kwargs["stream"] = True
+                retry_kwargs["stream_options"] = {"include_usage": True}
+                
                 # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**completion_kwargs):
+                for chunk in self.get_client().completion(**retry_kwargs):
                     yield self._parse_provider_response_delta(chunk)
                 
                 assistant_message.metrics.stop_timer()
@@ -262,8 +268,14 @@ class LiteLLM(Model):
                 # This fixes the "last message is from assistant" issue
                 messages.append(Message(role="user", content="Please continue."))
                 
+                # Recreate completion_kwargs with the updated messages
+                retry_kwargs = self.get_request_params(tools=tools if tools else None)
+                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
+                retry_kwargs["stream"] = True
+                retry_kwargs["stream_options"] = {"include_usage": True}
+                
                 # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**completion_kwargs):
+                for chunk in self.get_client().completion(**retry_kwargs):
                     yield self._parse_provider_response_delta(chunk)
                 
                 assistant_message.metrics.stop_timer()
@@ -337,8 +349,14 @@ class LiteLLM(Model):
                 # Add a continuation prompt to the messages to allow the LLM to respond properly
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
                 
+                # Recreate completion_kwargs with the updated messages
+                retry_kwargs = self.get_request_params(tools=tools if tools else None)
+                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
+                retry_kwargs["stream"] = True
+                retry_kwargs["stream_options"] = {"include_usage": True}
+                
                 # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**completion_kwargs)
+                async_stream = await self.get_client().acompletion(**retry_kwargs)
                 async for chunk in async_stream:
                     yield self._parse_provider_response_delta(chunk)
                 
@@ -353,8 +371,14 @@ class LiteLLM(Model):
                 # This fixes the "last message is from assistant" issue
                 messages.append(Message(role="user", content="Please continue."))
                 
+                # Recreate completion_kwargs with the updated messages
+                retry_kwargs = self.get_request_params(tools=tools if tools else None)
+                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
+                retry_kwargs["stream"] = True
+                retry_kwargs["stream_options"] = {"include_usage": True}
+                
                 # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**completion_kwargs)
+                async_stream = await self.get_client().acompletion(**retry_kwargs)
                 async for chunk in async_stream:
                     yield self._parse_provider_response_delta(chunk)
                 
