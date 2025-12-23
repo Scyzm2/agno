@@ -263,8 +263,9 @@ class LiteLLM(Model):
                     yield self._parse_provider_response_delta(chunk)
 
                 assistant_message.metrics.stop_timer()
-                # Successfully recovered, let the generator complete naturally
-                return
+                # Successfully recovered, continue normally without exiting the generator
+                # This allows the assistant message to be properly populated
+                # Don't return here, let the generator complete naturally
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -286,7 +287,7 @@ class LiteLLM(Model):
 
                 assistant_message.metrics.stop_timer()
                 # Successfully recovered, let the generator complete naturally
-                return
+                # Don't return here, let the generator complete naturally
             
             log_error(f"Error in streaming response: {e}")
             raise
@@ -374,7 +375,7 @@ class LiteLLM(Model):
 
                 assistant_message.metrics.stop_timer()
                 # Successfully recovered, let the generator complete naturally
-                return
+                # Don't return here, let the generator complete naturally
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -397,7 +398,7 @@ class LiteLLM(Model):
 
                 assistant_message.metrics.stop_timer()
                 # Successfully recovered, let the generator complete naturally
-                return
+                # Don't return here, let the generator complete naturally
             
             log_error(f"Error in streaming response: {e}")
             raise
