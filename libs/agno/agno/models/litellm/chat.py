@@ -263,11 +263,12 @@ class LiteLLM(Model):
                     yield self._parse_provider_response_delta(chunk)
 
                 assistant_message.metrics.stop_timer()
-                # Don't return here - let the generator complete naturally so the agent loop can continue
+                # Successfully recovered, let the generator complete naturally
+                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
-            if "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
+            elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
                 log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
                 # Add a continuation prompt to the messages to allow the LLM to respond
                 # This fixes the "last message is from assistant" issue
@@ -284,7 +285,8 @@ class LiteLLM(Model):
                     yield self._parse_provider_response_delta(chunk)
 
                 assistant_message.metrics.stop_timer()
-                # Don't return here - let the generator complete naturally so the agent loop can continue
+                # Successfully recovered, let the generator complete naturally
+                return
             
             log_error(f"Error in streaming response: {e}")
             raise
@@ -371,11 +373,12 @@ class LiteLLM(Model):
                     yield self._parse_provider_response_delta(chunk)
 
                 assistant_message.metrics.stop_timer()
-                # Don't return here - let the generator complete naturally so the agent loop can continue
+                # Successfully recovered, let the generator complete naturally
+                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
-            if "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
+            elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
                 log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
                 # Add a continuation prompt to the messages to allow the LLM to respond
                 # This fixes the "last message is from assistant" issue
@@ -393,7 +396,8 @@ class LiteLLM(Model):
                     yield self._parse_provider_response_delta(chunk)
 
                 assistant_message.metrics.stop_timer()
-                # Don't return here - let the generator complete naturally so the agent loop can continue
+                # Successfully recovered, let the generator complete naturally
+                return
             
             log_error(f"Error in streaming response: {e}")
             raise
