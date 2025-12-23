@@ -311,40 +311,39 @@ class LiteLLM(Model):
 
         assistant_message.metrics.start_timer()
 
-        try:
-            # litellm.acompletion returns a coroutine that resolves to an async iterator
-            # We need to await it first to get the actual async iterator
-            async_stream = await self.get_client().acompletion(**completion_kwargs)
-            async for chunk in async_stream:
-                # Handle empty function name callback gracefully
-                # Some LLMs return tool calls with empty function names as callbacks
-                # indicating they're done with tool calls for this iteration
-                try:
-                    yield self._parse_provider_response_delta(chunk)
-                except Exception as e:
-                    error_msg = str(e)
-                    if "Function name" in error_msg and "must be a-z" in error_msg:
-                        # This is a callback from the LLM, not an error
-                        # Skip this chunk and continue processing
-                        log_debug(f"Model returned an empty function name callback. Skipping and continuing: {e}")
-                        continue
-                    # Check if this is a LiteLLM error about add_generation_prompt
-                    # This can happen when the last message is from the assistant
-                    elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
-                        log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
-                        # Add a continuation prompt to the messages to allow the LLM to respond
-                        # This fixes the "last message is from assistant" issue
-                        messages.append(Message(role="user", content="Please continue."))
+        # litellm.acompletion returns a coroutine that resolves to an async iterator
+        # We need to await it first to get the actual async iterator
+        async_stream = await self.get_client().acompletion(**completion_kwargs)
+        async for chunk in async_stream:
+            # Handle empty function name callback gracefully
+            # Some LLMs return tool calls with empty function names as callbacks
+            # indicating they're done with tool calls for this iteration
+            try:
+                yield self._parse_provider_response_delta(chunk)
+            except Exception as e:
+                error_msg = str(e)
+                if "Function name" in error_msg and "must be a-z" in error_msg:
+                    # This is a callback from the LLM, not an error
+                    # Skip this chunk and continue processing
+                    log_debug(f"Model returned an empty function name callback. Skipping and continuing: {e}")
+                    continue
+                # Check if this is a LiteLLM error about add_generation_prompt
+                # This can happen when the last message is from the assistant
+                elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
+                    log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
+                    # Add a continuation prompt to the messages to allow the LLM to respond
+                    # This fixes the "last message is from assistant" issue
+                    messages.append(Message(role="user", content="Please continue."))
 
-                        # Re-raise the exception to allow the calling code to handle the retry
-                        # The messages list has been updated with the continuation prompt
-                        log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
-                        raise
-                    
-                    log_error(f"Error in streaming response: {e}")
+                    # Re-raise the exception to allow the calling code to handle the retry
+                    # The messages list has been updated with the continuation prompt
+                    log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
                     raise
+                
+                log_error(f"Error in streaming response: {e}")
+                raise
 
-            assistant_message.metrics.stop_timer()
+        assistant_message.metrics.stop_timer()
 
     def _parse_provider_response(self, response: Any, **kwargs) -> ModelResponse:
         """Parse the provider response."""
