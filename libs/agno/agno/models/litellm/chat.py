@@ -243,19 +243,13 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
-                # Add a continuation prompt to the messages to allow the LLM to respond properly
-                # Check if the last message is a tool message - if so, we need to add an assistant message first
-                if messages and messages[-1].role == "tool":
-                    # Add an assistant message to acknowledge the tool call
-                    messages.append(Message(role="assistant", content=""))
-                # Then add the user continuation prompt
-                messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
-
-                # Re-raise the exception to allow the calling code to handle the retry
-                # The messages list has been updated with the continuation prompt
-                log_error(f"Model returned an invalid tool call. Please retry with the updated messages.")
-                raise
+                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
+                # Create an empty ModelResponse to properly end the stream
+                # This allows the tool call loop to continue naturally
+                empty_response = ModelResponse()
+                yield empty_response
+                assistant_message.metrics.stop_timer()
+                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -334,19 +328,13 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
-                # Add a continuation prompt to the messages to allow the LLM to respond properly
-                # Check if the last message is a tool message - if so, we need to add an assistant message first
-                if messages and messages[-1].role == "tool":
-                    # Add an assistant message to acknowledge the tool call
-                    messages.append(Message(role="assistant", content=""))
-                # Then add the user continuation prompt
-                messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
-
-                # Re-raise the exception to allow the calling code to handle the retry
-                # The messages list has been updated with the continuation prompt
-                log_error(f"Model returned an invalid tool call. Please retry with the updated messages.")
-                raise
+                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
+                # Create an empty ModelResponse to properly end the stream
+                # This allows the tool call loop to continue naturally
+                empty_response = ModelResponse()
+                yield empty_response
+                assistant_message.metrics.stop_timer()
+                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
