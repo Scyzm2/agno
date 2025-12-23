@@ -245,6 +245,11 @@ class LiteLLM(Model):
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
                 # Add a continuation prompt to the messages to allow the LLM to respond properly
+                # Check if the last message is a tool message - if so, we need to add an assistant message first
+                if messages and messages[-1].role == "tool":
+                    # Add an assistant message to acknowledge the tool call
+                    messages.append(Message(role="assistant", content=""))
+                # Then add the user continuation prompt
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
                 
                 # Recreate completion_kwargs with the updated messages
@@ -347,6 +352,11 @@ class LiteLLM(Model):
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
                 # Add a continuation prompt to the messages to allow the LLM to respond properly
+                # Check if the last message is a tool message - if so, we need to add an assistant message first
+                if messages and messages[-1].role == "tool":
+                    # Add an assistant message to acknowledge the tool call
+                    messages.append(Message(role="assistant", content=""))
+                # Then add the user continuation prompt
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
                 
                 # Recreate completion_kwargs with the updated messages
