@@ -252,20 +252,10 @@ class LiteLLM(Model):
                 # Then add the user continuation prompt
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
 
-                # Recreate completion_kwargs with the updated messages
-                retry_kwargs = self.get_request_params(tools=tools if tools else None)
-                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
-                retry_kwargs["stream"] = True
-                retry_kwargs["stream_options"] = {"include_usage": True}
-
-                # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**retry_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
-
-                assistant_message.metrics.stop_timer()
-                # Successfully recovered, continue normally without exiting the generator
-                # This allows the assistant message to be properly populated
-                # Don't return here, let the generator complete naturally
+                # Re-raise the exception to allow the calling code to handle the retry
+                # The messages list has been updated with the continuation prompt
+                log_error(f"Model returned an invalid tool call. Please retry with the updated messages.")
+                raise
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -275,19 +265,10 @@ class LiteLLM(Model):
                 # This fixes the "last message is from assistant" issue
                 messages.append(Message(role="user", content="Please continue."))
 
-                # Recreate completion_kwargs with the updated messages
-                retry_kwargs = self.get_request_params(tools=tools if tools else None)
-                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
-                retry_kwargs["stream"] = True
-                retry_kwargs["stream_options"] = {"include_usage": True}
-
-                # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**retry_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
-
-                assistant_message.metrics.stop_timer()
-                # Successfully recovered, let the generator complete naturally
-                # Don't return here, let the generator complete naturally
+                # Re-raise the exception to allow the calling code to handle the retry
+                # The messages list has been updated with the continuation prompt
+                log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
+                raise
             
             log_error(f"Error in streaming response: {e}")
             raise
@@ -362,20 +343,10 @@ class LiteLLM(Model):
                 # Then add the user continuation prompt
                 messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
 
-                # Recreate completion_kwargs with the updated messages
-                retry_kwargs = self.get_request_params(tools=tools if tools else None)
-                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
-                retry_kwargs["stream"] = True
-                retry_kwargs["stream_options"] = {"include_usage": True}
-
-                # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**retry_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
-
-                assistant_message.metrics.stop_timer()
-                # Successfully recovered, let the generator complete naturally
-                # Don't return here, let the generator complete naturally
+                # Re-raise the exception to allow the calling code to handle the retry
+                # The messages list has been updated with the continuation prompt
+                log_error(f"Model returned an invalid tool call. Please retry with the updated messages.")
+                raise
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -385,20 +356,10 @@ class LiteLLM(Model):
                 # This fixes the "last message is from assistant" issue
                 messages.append(Message(role="user", content="Please continue."))
 
-                # Recreate completion_kwargs with the updated messages
-                retry_kwargs = self.get_request_params(tools=tools if tools else None)
-                retry_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
-                retry_kwargs["stream"] = True
-                retry_kwargs["stream_options"] = {"include_usage": True}
-
-                # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**retry_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
-
-                assistant_message.metrics.stop_timer()
-                # Successfully recovered, let the generator complete naturally
-                # Don't return here, let the generator complete naturally
+                # Re-raise the exception to allow the calling code to handle the retry
+                # The messages list has been updated with the continuation prompt
+                log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
+                raise
             
             log_error(f"Error in streaming response: {e}")
             raise
