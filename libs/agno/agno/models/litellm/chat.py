@@ -243,13 +243,14 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create a ModelResponse with empty content and no tool calls
-                # This signals to the base model that the tool call loop should end
-                empty_response = ModelResponse(content="")
-                # Explicitly set tool_calls to empty list to indicate no more tool calls
-                empty_response.tool_calls = []
-                yield empty_response
+                log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
+                # Add a continuation prompt to the messages to allow the LLM to respond properly
+                messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
+                
+                # Retry the completion with the updated messages
+                for chunk in self.get_client().completion(**completion_kwargs):
+                    yield self._parse_provider_response_delta(chunk)
+                
                 assistant_message.metrics.stop_timer()
                 return
             
@@ -332,13 +333,15 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create a ModelResponse with empty content and no tool calls
-                # This signals to the base model that the tool call loop should end
-                empty_response = ModelResponse(content="")
-                # Explicitly set tool_calls to empty list to indicate no more tool calls
-                empty_response.tool_calls = []
-                yield empty_response
+                log_warning(f"Model returned an invalid tool call. Adding continuation prompt: {e}")
+                # Add a continuation prompt to the messages to allow the LLM to respond properly
+                messages.append(Message(role="user", content="Please continue with your response or use tools as needed."))
+                
+                # Retry the completion with the updated messages
+                async_stream = await self.get_client().acompletion(**completion_kwargs)
+                async for chunk in async_stream:
+                    yield self._parse_provider_response_delta(chunk)
+                
                 assistant_message.metrics.stop_timer()
                 return
             
