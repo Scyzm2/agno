@@ -235,21 +235,22 @@ class LiteLLM(Model):
 
         try:
             for chunk in self.get_client().completion(**completion_kwargs):
-                yield self._parse_provider_response_delta(chunk)
+                # Handle empty function name callback gracefully
+                # Some LLMs return tool calls with empty function names as callbacks
+                # indicating they're done with tool calls for this iteration
+                try:
+                    yield self._parse_provider_response_delta(chunk)
+                except Exception as e:
+                    error_msg = str(e)
+                    if "Function name" in error_msg and "must be a-z" in error_msg:
+                        # This is a callback from the LLM, not an error
+                        # Skip this chunk and continue processing
+                        log_debug(f"Model returned an empty function name callback. Skipping and continuing: {e}")
+                        continue
+                    # Re-raise other errors
+                    raise
 
             assistant_message.metrics.stop_timer()
-        except Exception as e:
-            # Check if this is a Litellm validation error for empty/invalid function name
-            # This can happen when the model returns a malformed tool call
-            error_msg = str(e)
-            if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create an empty ModelResponse to properly end the stream
-                # This allows the tool call loop to continue naturally
-                empty_response = ModelResponse()
-                yield empty_response
-                assistant_message.metrics.stop_timer()
-                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -319,22 +320,22 @@ class LiteLLM(Model):
             # We need to await it first to get the actual async iterator
             async_stream = await self.get_client().acompletion(**completion_kwargs)
             async for chunk in async_stream:
-                yield self._parse_provider_response_delta(chunk)
+                # Handle empty function name callback gracefully
+                # Some LLMs return tool calls with empty function names as callbacks
+                # indicating they're done with tool calls for this iteration
+                try:
+                    yield self._parse_provider_response_delta(chunk)
+                except Exception as e:
+                    error_msg = str(e)
+                    if "Function name" in error_msg and "must be a-z" in error_msg:
+                        # This is a callback from the LLM, not an error
+                        # Skip this chunk and continue processing
+                        log_debug(f"Model returned an empty function name callback. Skipping and continuing: {e}")
+                        continue
+                    # Re-raise other errors
+                    raise
 
             assistant_message.metrics.stop_timer()
-
-        except Exception as e:
-            # Check if this is a Litellm validation error for empty/invalid function name
-            # This can happen when the model returns a malformed tool call
-            error_msg = str(e)
-            if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Treating as end of tool call loop: {e}")
-                # Create an empty ModelResponse to properly end the stream
-                # This allows the tool call loop to continue naturally
-                empty_response = ModelResponse()
-                yield empty_response
-                assistant_message.metrics.stop_timer()
-                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
