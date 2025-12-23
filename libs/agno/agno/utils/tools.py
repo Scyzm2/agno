@@ -15,6 +15,18 @@ def get_function_call_for_tool_call(
             _tool_call_function_name = _tool_call_function.get("name")
             _tool_call_function_arguments_str = _tool_call_function.get("arguments") or "{}"
             if _tool_call_function_name is not None:
+                # Validate function name format before creating the function call
+                # Function names must be a-z, A-Z, 0-9, or contain underscores and dashes
+                # with a maximum length of 64
+                if not _tool_call_function_name.strip():
+                    # Empty function name
+                    return None
+                if len(_tool_call_function_name) > 64:
+                    # Function name too long
+                    return None
+                if not all(c.isalnum() or c in ('_', '-') for c in _tool_call_function_name):
+                    # Function name contains invalid characters
+                    return None
                 return get_function_call(
                     name=_tool_call_function_name,
                     arguments=_tool_call_function_arguments_str,
