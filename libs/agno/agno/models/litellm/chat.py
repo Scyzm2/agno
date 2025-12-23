@@ -259,11 +259,15 @@ class LiteLLM(Model):
                 retry_kwargs["stream_options"] = {"include_usage": True}
                 
                 # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**retry_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
-                
-                assistant_message.metrics.stop_timer()
-                return
+                try:
+                    for chunk in self.get_client().completion(**retry_kwargs):
+                        yield self._parse_provider_response_delta(chunk)
+                    assistant_message.metrics.stop_timer()
+                    return
+                except Exception as retry_e:
+                    log_error(f"Retry failed after adding continuation prompt: {retry_e}")
+                    log_error(f"Original error: {e}")
+                    raise
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -280,11 +284,15 @@ class LiteLLM(Model):
                 retry_kwargs["stream_options"] = {"include_usage": True}
                 
                 # Retry the completion with the updated messages
-                for chunk in self.get_client().completion(**retry_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
-                
-                assistant_message.metrics.stop_timer()
-                return
+                try:
+                    for chunk in self.get_client().completion(**retry_kwargs):
+                        yield self._parse_provider_response_delta(chunk)
+                    assistant_message.metrics.stop_timer()
+                    return
+                except Exception as retry_e:
+                    log_error(f"Retry failed after adding continuation prompt: {retry_e}")
+                    log_error(f"Original error: {e}")
+                    raise
             
             log_error(f"Error in streaming response: {e}")
             raise
@@ -366,12 +374,16 @@ class LiteLLM(Model):
                 retry_kwargs["stream_options"] = {"include_usage": True}
                 
                 # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**retry_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
-                
-                assistant_message.metrics.stop_timer()
-                return
+                try:
+                    async_stream = await self.get_client().acompletion(**retry_kwargs)
+                    async for chunk in async_stream:
+                        yield self._parse_provider_response_delta(chunk)
+                    assistant_message.metrics.stop_timer()
+                    return
+                except Exception as retry_e:
+                    log_error(f"Retry failed after adding continuation prompt: {retry_e}")
+                    log_error(f"Original error: {e}")
+                    raise
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -388,12 +400,16 @@ class LiteLLM(Model):
                 retry_kwargs["stream_options"] = {"include_usage": True}
                 
                 # Retry the completion with the updated messages
-                async_stream = await self.get_client().acompletion(**retry_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
-                
-                assistant_message.metrics.stop_timer()
-                return
+                try:
+                    async_stream = await self.get_client().acompletion(**retry_kwargs)
+                    async for chunk in async_stream:
+                        yield self._parse_provider_response_delta(chunk)
+                    assistant_message.metrics.stop_timer()
+                    return
+                except Exception as retry_e:
+                    log_error(f"Retry failed after adding continuation prompt: {retry_e}")
+                    log_error(f"Original error: {e}")
+                    raise
             
             log_error(f"Error in streaming response: {e}")
             raise
