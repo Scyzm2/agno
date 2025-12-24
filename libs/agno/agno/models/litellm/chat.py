@@ -223,6 +223,10 @@ class LiteLLM(Model):
         compress_tool_results: bool = False,
     ) -> Iterator[ModelResponse]:
         """Sends a streaming chat completion request to the LiteLLM API."""
+        log_debug(f"=== INVOKE_STREAM START ===", log_level=1)
+        log_debug(f"Messages count: {len(messages)}", log_level=1)
+        log_debug(f"Tools provided: {len(tools) if tools else 0}", log_level=1)
+
         completion_kwargs = self.get_request_params(tools=tools)
         completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
         completion_kwargs["stream"] = True
@@ -232,26 +236,37 @@ class LiteLLM(Model):
             run_response.metrics.set_time_to_first_token()
 
         assistant_message.metrics.start_timer()
+        log_debug(f"Timer started for assistant message", log_level=1)
 
         try:
+            log_debug(f"Starting streaming request to LiteLLM", log_level=1)
+            chunk_count = 0
             for chunk in self.get_client().completion(**completion_kwargs):
+                chunk_count += 1
+                log_debug(f"Received chunk {chunk_count}: {chunk}", log_level=1)
                 yield self._parse_provider_response_delta(chunk)
 
+            log_debug(f"Stream completed normally. Total chunks: {chunk_count}", log_level=1)
             assistant_message.metrics.stop_timer()
         except Exception as e:
+            log_debug(f"Exception caught in invoke_stream: {type(e).__name__}: {e}", log_level=1)
             # Check if this is a Litellm validation error for empty/invalid function name
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
+            log_debug(f"Error message: {error_msg}", log_level=1)
+
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Treating as empty text response: {e}")
+                log_debug(f"Yielding empty response and stopping timer", log_level=1)
                 # When the model returns an empty function name, it's not calling a tool
                 # Treat this as an empty text response so the tool loop can continue naturally
                 # Yield an empty text response instead of ending the stream
                 empty_response = ModelResponse(content="")
                 yield empty_response
                 assistant_message.metrics.stop_timer()
+                log_debug(f"=== INVOKE_STREAM END (empty response) ===", log_level=1)
                 return
-            
+
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
@@ -263,9 +278,11 @@ class LiteLLM(Model):
                 # Re-raise the exception to allow the calling code to handle the retry
                 # The messages list has been updated with the continuation prompt
                 log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
+                log_debug(f"=== INVOKE_STREAM END (re-raise exception) ===", log_level=1)
                 raise
-            
+
             log_error(f"Error in streaming response: {e}")
+            log_debug(f"=== INVOKE_STREAM END (uncaught exception) ===", log_level=1)
             raise
 
     async def ainvoke(
@@ -295,16 +312,11 @@ class LiteLLM(Model):
         return model_response
 
     async def ainvoke_stream(
-        self,
-        messages: List[Message],
-        assistant_message: Message,
-        response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
-        run_response: Optional[RunOutput] = None,
-        compress_tool_results: bool = False,
-    ) -> AsyncIterator[ModelResponse]:
         """Sends an asynchronous streaming chat request to the LiteLLM API."""
+        log_debug(f"=== AINVOKE_STREAM START ===", log_level=1)
+        log_debug(f"Messages count: {len(messages)}", log_level=1)
+        log_debug(f"Tools provided: {len(tools) if tools else 0}", log_level=1)
+
         completion_kwargs = self.get_request_params(tools=tools)
         completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
         completion_kwargs["stream"] = True
@@ -314,30 +326,41 @@ class LiteLLM(Model):
             run_response.metrics.set_time_to_first_token()
 
         assistant_message.metrics.start_timer()
+        log_debug(f"Timer started for assistant message", log_level=1)
 
         try:
+            log_debug(f"Starting async streaming request to LiteLLM", log_level=1)
             # litellm.acompletion returns a coroutine that resolves to an async iterator
             # We need to await it first to get the actual async iterator
             async_stream = await self.get_client().acompletion(**completion_kwargs)
+            chunk_count = 0
             async for chunk in async_stream:
+                chunk_count += 1
+                log_debug(f"Received async chunk {chunk_count}: {chunk}", log_level=1)
                 yield self._parse_provider_response_delta(chunk)
 
+            log_debug(f"Async stream completed normally. Total chunks: {chunk_count}", log_level=1)
             assistant_message.metrics.stop_timer()
 
         except Exception as e:
+            log_debug(f"Exception caught in ainvoke_stream: {type(e).__name__}: {e}", log_level=1)
             # Check if this is a Litellm validation error for empty/invalid function name
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
+            log_debug(f"Error message: {error_msg}", log_level=1)
+
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Treating as empty text response: {e}")
+                log_debug(f"Yielding empty response and stopping timer", log_level=1)
                 # When the model returns an empty function name, it's not calling a tool
                 # Treat this as an empty text response so the tool loop can continue naturally
                 # Yield an empty text response instead of ending the stream
                 empty_response = ModelResponse(content="")
                 yield empty_response
                 assistant_message.metrics.stop_timer()
+                log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
                 return
-            
+
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
@@ -349,11 +372,12 @@ class LiteLLM(Model):
                 # Re-raise the exception to allow the calling code to handle the retry
                 # The messages list has been updated with the continuation prompt
                 log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
+                log_debug(f"=== AINVOKE_STREAM END (re-raise exception) ===", log_level=1)
                 raise
-            
-            log_error(f"Error in streaming response: {e}")
-            raise
 
+            log_error(f"Error in streaming response: {e}")
+            log_debug(f"=== AINVOKE_STREAM END (uncaught exception) ===", log_level=1)
+            raise
     def _parse_provider_response(self, response: Any, **kwargs) -> ModelResponse:
         """Parse the provider response."""
         model_response = ModelResponse()
