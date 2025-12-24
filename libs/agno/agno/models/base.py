@@ -1346,6 +1346,11 @@ class Model(ABC):
                     continue
 
                 # No tool calls or finished processing them
+                # Check if this is a continuation signal from the model layer
+                if assistant_message.content and "<CONTINUE_LOOP>" in assistant_message.content:
+                    log_debug("Continuation signal detected. Continuing loop.", log_level=1)
+                    continue
+
                 break
 
             log_debug(f"{self.get_provider()} Response Stream End", center=True, symbol="-")

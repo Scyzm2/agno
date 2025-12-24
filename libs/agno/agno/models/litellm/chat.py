@@ -256,16 +256,16 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Skipping model call and continuing: {e}")
-                log_debug(f"Not calling model again, letting agent loop continue naturally", log_level=1)
+                log_warning(f"Model returned an invalid tool call. Yielding continuation signal: {e}")
+                log_debug(f"Signaling agent to continue loop without breaking", log_level=1)
                 # When the model returns an empty function name after tool use,
-                # it means it has nothing more to say right now.
-                # Instead of calling the model again (which causes the loop to break),
-                # we should just end this stream and let the agent loop handle it.
-                # The agent will check if there are tool calls, see there are none,
-                # and either continue or end appropriately based on its logic.
+                # we need to yield a response that keeps the loop alive.
+                # We yield a response with a special marker that tells the agent
+                # this is a continuation signal, not a final response.
+                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
+                yield continuation_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== INVOKE_STREAM END (skip model call) ===", log_level=1)
+                log_debug(f"=== INVOKE_STREAM END (continuation signal) ===", log_level=1)
                 return
 
             # Check if this is a LiteLLM error about add_generation_prompt
@@ -361,16 +361,16 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Skipping model call and continuing: {e}")
-                log_debug(f"Not calling model again, letting agent loop continue naturally", log_level=1)
+                log_warning(f"Model returned an invalid tool call. Yielding continuation signal: {e}")
+                log_debug(f"Signaling agent to continue loop without breaking", log_level=1)
                 # When the model returns an empty function name after tool use,
-                # it means it has nothing more to say right now.
-                # Instead of calling the model again (which causes the loop to break),
-                # we should just end this stream and let the agent loop handle it.
-                # The agent will check if there are tool calls, see there are none,
-                # and either continue or end appropriately based on its logic.
+                # we need to yield a response that keeps the loop alive.
+                # We yield a response with a special marker that tells the agent
+                # this is a continuation signal, not a final response.
+                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
+                yield continuation_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== AINVOKE_STREAM END (skip model call) ===", log_level=1)
+                log_debug(f"=== AINVOKE_STREAM END (continuation signal) ===", log_level=1)
                 return
             
             # Check if this is a LiteLLM error about add_generation_prompt
