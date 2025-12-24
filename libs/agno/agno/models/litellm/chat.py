@@ -278,10 +278,12 @@ class LiteLLM(Model):
                 # Re-raise the exception to allow the calling code to handle the retry
                 # The messages list has been updated with the continuation prompt
                 log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
+                log_debug(f"=== AINVOKE_STREAM END (re-raise exception) ===", log_level=1)
                 log_debug(f"=== INVOKE_STREAM END (re-raise exception) ===", log_level=1)
                 raise
 
             log_error(f"Error in streaming response: {e}")
+            log_debug(f"=== AINVOKE_STREAM END (uncaught exception) ===", log_level=1)
             log_debug(f"=== INVOKE_STREAM END (uncaught exception) ===", log_level=1)
             raise
 
@@ -312,11 +314,19 @@ class LiteLLM(Model):
         return model_response
 
     async def ainvoke_stream(
+        self,
+        messages: List[Message],
+        assistant_message: Message,
+        response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        run_response: Optional[RunOutput] = None,
+        compress_tool_results: bool = False,
+    ) -> AsyncIterator[ModelResponse]:
         """Sends an asynchronous streaming chat request to the LiteLLM API."""
         log_debug(f"=== AINVOKE_STREAM START ===", log_level=1)
         log_debug(f"Messages count: {len(messages)}", log_level=1)
         log_debug(f"Tools provided: {len(tools) if tools else 0}", log_level=1)
-
         completion_kwargs = self.get_request_params(tools=tools)
         completion_kwargs["messages"] = self._format_messages(messages, compress_tool_results)
         completion_kwargs["stream"] = True
@@ -360,7 +370,7 @@ class LiteLLM(Model):
                 assistant_message.metrics.stop_timer()
                 log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
                 return
-
+            
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
@@ -374,10 +384,11 @@ class LiteLLM(Model):
                 log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
                 log_debug(f"=== AINVOKE_STREAM END (re-raise exception) ===", log_level=1)
                 raise
-
+            
             log_error(f"Error in streaming response: {e}")
             log_debug(f"=== AINVOKE_STREAM END (uncaught exception) ===", log_level=1)
             raise
+
     def _parse_provider_response(self, response: Any, **kwargs) -> ModelResponse:
         """Parse the provider response."""
         model_response = ModelResponse()
