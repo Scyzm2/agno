@@ -256,16 +256,30 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Yielding continuation signal: {e}")
-                log_debug(f"Signaling agent to continue loop without breaking", log_level=1)
+                log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
+                log_debug(f"Model returned empty function name. Adding continuation prompt and retrying.", log_level=1)
                 # When the model returns an empty function name after tool use,
-                # we need to yield a response that keeps the loop alive.
-                # We yield a response with a special marker that tells the agent
-                # this is a continuation signal, not a final response.
-                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
-                yield continuation_response
+                # it's often because it doesn't know what to do next.
+                # Add a system message to prompt the model to continue or finish.
+
+                # Add continuation prompt to messages
+                continuation_prompt = Message(
+                    role="system",
+                    content="Continue with your task. Use tools as needed, or provide a final response.")
+                messages.append(continuation_prompt)
+
+                # Retry the request without tools to get a text response
+                completion_kwargs.pop('tools', None)
+                completion_kwargs.pop('tool_choice', None)
+
+                log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
+
+                # Continue streaming without tools
+                for chunk in self.get_client().completion(**completion_kwargs):
+                    yield self._parse_provider_response_delta(chunk)
+
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== INVOKE_STREAM END (continuation signal) ===", log_level=1)
+                log_debug(f"=== INVOKE_STREAM END (retry with continuation) ===", log_level=1)
                 return
 
             # Check if this is a LiteLLM error about add_generation_prompt
@@ -360,16 +374,31 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Yielding continuation signal: {e}")
-                log_debug(f"Signaling agent to continue loop without breaking", log_level=1)
+                log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
+                log_debug(f"Model returned empty function name. Adding continuation prompt and retrying.", log_level=1)
                 # When the model returns an empty function name after tool use,
-                # we need to yield a response that keeps the loop alive.
-                # We yield a response with a special marker that tells the agent
-                # this is a continuation signal, not a final response.
-                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
-                yield continuation_response
+                # it's often because it doesn't know what to do next.
+                # Add a system message to prompt the model to continue or finish.
+
+                # Add continuation prompt to messages
+                continuation_prompt = Message(
+                    role="system",
+                    content="Continue with your task. Use tools as needed, or provide a final response.")
+                messages.append(continuation_prompt)
+
+                # Retry the request without tools to get a text response
+                completion_kwargs.pop('tools', None)
+                completion_kwargs.pop('tool_choice', None)
+
+                log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
+
+                # Continue streaming without tools
+                async_stream = await self.get_client().acompletion(**completion_kwargs)
+                async for chunk in async_stream:
+                    yield self._parse_provider_response_delta(chunk)
+
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== AINVOKE_STREAM END (continuation signal) ===", log_level=1)
+                log_debug(f"=== AINVOKE_STREAM END (retry with continuation) ===", log_level=1)
                 return
             
             # Check if this is a LiteLLM error about add_generation_prompt
