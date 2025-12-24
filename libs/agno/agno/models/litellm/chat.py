@@ -271,13 +271,15 @@ class LiteLLM(Model):
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
-                log_warning(f"LiteLLM error with add_generation_prompt. Cannot continue: {e}")
+                log_warning(f"LiteLLM error with add_generation_prompt. Yielding continuation signal: {e}")
                 # When the last message is from the assistant (like our <CONTINUE_LOOP> signal),
-                # LiteLLM won't allow us to continue. In this case, we should just end the stream
-                # and let the agent loop handle the continuation naturally.
-                log_debug(f"Last message is from assistant. Ending stream gracefully.", log_level=1)
+                # LiteLLM won't allow us to continue. But we should yield the continuation signal
+                # to keep the loop alive.
+                log_debug(f"Last message is from assistant. Yielding continuation signal and ending stream.", log_level=1)
+                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
+                yield continuation_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== INVOKE_STREAM END (assistant last message) ===", log_level=1)
+                log_debug(f"=== INVOKE_STREAM END (assistant last message, with signal) ===", log_level=1)
                 return
 
             log_error(f"Error in streaming response: {e}")
@@ -373,13 +375,15 @@ class LiteLLM(Model):
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
-                log_warning(f"LiteLLM error with add_generation_prompt. Cannot continue: {e}")
+                log_warning(f"LiteLLM error with add_generation_prompt. Yielding continuation signal: {e}")
                 # When the last message is from the assistant (like our <CONTINUE_LOOP> signal),
-                # LiteLLM won't allow us to continue. In this case, we should just end the stream
-                # and let the agent loop handle the continuation naturally.
-                log_debug(f"Last message is from assistant. Ending stream gracefully.", log_level=1)
+                # LiteLLM won't allow us to continue. But we should yield the continuation signal
+                # to keep the loop alive.
+                log_debug(f"Last message is from assistant. Yielding continuation signal and ending stream.", log_level=1)
+                continuation_response = ModelResponse(content="<CONTINUE_LOOP>")
+                yield continuation_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== AINVOKE_STREAM END (assistant last message) ===", log_level=1)
+                log_debug(f"=== AINVOKE_STREAM END (assistant last message, with signal) ===", log_level=1)
                 return
             
             log_error(f"Error in streaming response: {e}")
