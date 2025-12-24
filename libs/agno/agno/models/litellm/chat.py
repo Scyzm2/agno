@@ -257,31 +257,18 @@ class LiteLLM(Model):
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
-                log_debug(f"Model returned empty function name. Adding continuation prompt and retrying.", log_level=1)
+                log_debug(f"Model returned empty function name. Retrying without tools.", log_level=1)
                 # When the model returns an empty function name after tool use,
                 # it's often because it doesn't know what to do next.
-                # Add a system message to prompt the model to continue or finish.
-                # IMPORTANT: We add this to completion_kwargs['messages'] directly to avoid
-                # contaminating the shared messages list that would cause LiteLLM errors
-
-                # Add continuation prompt to the request messages (not the shared messages list)
-                # Use user role instead of system to avoid "Unexpected role 'system' after role 'tool'" error
-                continuation_prompt = Message(
-                    role="user",
-                    content="Continue with your task. Use tools as needed, or provide a final response.")
-                # Get the formatted messages and add our continuation prompt
-                formatted_messages = self._format_messages(messages, compress_tool_results)
-                formatted_messages.append({
-                    "role": "user",
-                    "content": "Continue with your task. Use tools as needed, or provide a final response."
-                })
-                completion_kwargs["messages"] = formatted_messages
+                # However, we CANNOT add any message after tool messages (LiteLLM format rule).
+                # Instead, we retry with the same messages but WITHOUT tools.
+                # This forces the model to provide a text response instead of trying to call tools.
 
                 # Retry the request without tools to get a text response
                 completion_kwargs.pop('tools', None)
                 completion_kwargs.pop('tool_choice', None)
 
-                log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
+                log_debug(f"Retrying without tools (no continuation prompt added to avoid format error)", log_level=1)
 
                 # Continue streaming without tools
                 try:
@@ -391,31 +378,18 @@ class LiteLLM(Model):
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
                 log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
-                log_debug(f"Model returned empty function name. Adding continuation prompt and retrying.", log_level=1)
+                log_debug(f"Model returned empty function name. Retrying without tools.", log_level=1)
                 # When the model returns an empty function name after tool use,
                 # it's often because it doesn't know what to do next.
-                # Add a system message to prompt the model to continue or finish.
-                # IMPORTANT: We add this to completion_kwargs['messages'] directly to avoid
-                # contaminating the shared messages list that would cause LiteLLM errors
-
-                # Add continuation prompt to the request messages (not the shared messages list)
-                # Use user role instead of system to avoid "Unexpected role 'system' after role 'tool'" error
-                continuation_prompt = Message(
-                    role="user",
-                    content="Continue with your task. Use tools as needed, or provide a final response.")
-                # Get the formatted messages and add our continuation prompt
-                formatted_messages = self._format_messages(messages, compress_tool_results)
-                formatted_messages.append({
-                    "role": "user",
-                    "content": "Continue with your task. Use tools as needed, or provide a final response."
-                })
-                completion_kwargs["messages"] = formatted_messages
+                # However, we CANNOT add any message after tool messages (LiteLLM format rule).
+                # Instead, we retry with the same messages but WITHOUT tools.
+                # This forces the model to provide a text response instead of trying to call tools.
 
                 # Retry the request without tools to get a text response
                 completion_kwargs.pop('tools', None)
                 completion_kwargs.pop('tool_choice', None)
 
-                log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
+                log_debug(f"Retrying without tools (no continuation prompt added to avoid format error)", log_level=1)
 
                 # Continue streaming without tools
                 try:
