@@ -261,12 +261,20 @@ class LiteLLM(Model):
                 # When the model returns an empty function name after tool use,
                 # it's often because it doesn't know what to do next.
                 # Add a system message to prompt the model to continue or finish.
+                # IMPORTANT: We add this to completion_kwargs['messages'] directly to avoid
+                # contaminating the shared messages list that would cause LiteLLM errors
 
-                # Add continuation prompt to messages
+                # Add continuation prompt to the request messages (not the shared messages list)
                 continuation_prompt = Message(
                     role="system",
                     content="Continue with your task. Use tools as needed, or provide a final response.")
-                messages.append(continuation_prompt)
+                # Get the formatted messages and add our continuation prompt
+                formatted_messages = self._format_messages(messages, compress_tool_results)
+                formatted_messages.append({
+                    "role": "system",
+                    "content": "Continue with your task. Use tools as needed, or provide a final response."
+                })
+                completion_kwargs["messages"] = formatted_messages
 
                 # Retry the request without tools to get a text response
                 completion_kwargs.pop('tools', None)
@@ -386,12 +394,20 @@ class LiteLLM(Model):
                 # When the model returns an empty function name after tool use,
                 # it's often because it doesn't know what to do next.
                 # Add a system message to prompt the model to continue or finish.
+                # IMPORTANT: We add this to completion_kwargs['messages'] directly to avoid
+                # contaminating the shared messages list that would cause LiteLLM errors
 
-                # Add continuation prompt to messages
+                # Add continuation prompt to the request messages (not the shared messages list)
                 continuation_prompt = Message(
                     role="system",
                     content="Continue with your task. Use tools as needed, or provide a final response.")
-                messages.append(continuation_prompt)
+                # Get the formatted messages and add our continuation prompt
+                formatted_messages = self._format_messages(messages, compress_tool_results)
+                formatted_messages.append({
+                    "role": "system",
+                    "content": "Continue with your task. Use tools as needed, or provide a final response."
+                })
+                completion_kwargs["messages"] = formatted_messages
 
                 # Retry the request without tools to get a text response
                 completion_kwargs.pop('tools', None)
