@@ -275,8 +275,15 @@ class LiteLLM(Model):
                 log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
 
                 # Continue streaming without tools
-                for chunk in self.get_client().completion(**completion_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
+                try:
+                    for chunk in self.get_client().completion(**completion_kwargs):
+                        yield self._parse_provider_response_delta(chunk)
+                except Exception as retry_error:
+                    log_error(f"Retry attempt failed: {retry_error}")
+                    log_warning("Retry failed. Providing empty response to allow loop to continue.")
+                    # If retry fails, yield an empty response to keep the loop alive
+                    empty_response = ModelResponse(content="")
+                    yield empty_response
 
                 assistant_message.metrics.stop_timer()
                 log_debug(f"=== INVOKE_STREAM END (retry with continuation) ===", log_level=1)
@@ -393,9 +400,16 @@ class LiteLLM(Model):
                 log_debug(f"Retrying without tools after adding continuation prompt", log_level=1)
 
                 # Continue streaming without tools
-                async_stream = await self.get_client().acompletion(**completion_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
+                try:
+                    async_stream = await self.get_client().acompletion(**completion_kwargs)
+                    async for chunk in async_stream:
+                        yield self._parse_provider_response_delta(chunk)
+                except Exception as retry_error:
+                    log_error(f"Retry attempt failed: {retry_error}")
+                    log_warning("Retry failed. Providing empty response to allow loop to continue.")
+                    # If retry fails, yield an empty response to keep the loop alive
+                    empty_response = ModelResponse(content="")
+                    yield empty_response
 
                 assistant_message.metrics.stop_timer()
                 log_debug(f"=== AINVOKE_STREAM END (retry with continuation) ===", log_level=1)

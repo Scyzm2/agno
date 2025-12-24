@@ -1354,6 +1354,12 @@ class Model(ABC):
                     log_debug("Continuation signal detected. Continuing loop.", log_level=1)
                     continue
 
+                # Check if this is an empty response after a retry failure
+                # If content is empty/None and we just had tool calls, continue the loop
+                if assistant_message.content in (None, "") and function_call_count > 0:
+                    log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
+                    continue
+
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
                 break
 
@@ -1581,6 +1587,12 @@ class Model(ABC):
                 # Check if this is a continuation signal from the model layer
                 if assistant_message.content and "<CONTINUE_LOOP>" in assistant_message.content:
                     log_debug("Continuation signal detected. Continuing loop.", log_level=1)
+                    continue
+
+                # Check if this is an empty response after a retry failure
+                # If content is empty/None and we just had tool calls, continue the loop
+                if assistant_message.content in (None, "") and function_call_count > 0:
+                    log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
                     continue
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
