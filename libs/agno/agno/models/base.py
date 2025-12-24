@@ -1268,7 +1268,9 @@ class Model(ABC):
                     yield model_response
 
                 # Add assistant message to messages
-                messages.append(assistant_message)
+                # Skip adding continuation signals to history to avoid LiteLLM errors
+                if assistant_message.content is None or "<CONTINUE_LOOP>" not in assistant_message.content:
+                    messages.append(assistant_message)
                 assistant_message.log(metrics=True)
 
                 # Handle tool calls if present
@@ -1495,7 +1497,9 @@ class Model(ABC):
                     yield model_response
 
                 # Add assistant message to messages
-                messages.append(assistant_message)
+                # Skip adding continuation signals to history to avoid LiteLLM errors
+                if assistant_message.content is None or "<CONTINUE_LOOP>" not in assistant_message.content:
+                    messages.append(assistant_message)
                 assistant_message.log(metrics=True)
 
                 # Handle tool calls if present
