@@ -256,40 +256,17 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying without tools: {e}")
-                log_debug(f"Removing tools and retrying request", log_level=1)
-                # When the model returns an empty function name, it's not calling a tool
-                # but may want to continue with text generation. Remove tools and retry
-                # to allow the model to generate a text-only response.
-                completion_kwargs.pop('tools', None)
-                completion_kwargs.pop('tool_choice', None)
-
-                try:
-                    # Continue streaming without tools
-                    for chunk in self.get_client().completion(**completion_kwargs):
-                        yield self._parse_provider_response_delta(chunk)
-
-                    assistant_message.metrics.stop_timer()
-                    log_debug(f"=== INVOKE_STREAM END (retried without tools) ===", log_level=1)
-                    return
-                except Exception as retry_e:
-                    retry_error_msg = str(retry_e)
-                    log_error(f"Retry without tools also failed: {retry_error_msg}")
-                    log_debug(f"=== INVOKE_STREAM END (retry failed) ===", log_level=1)
-
-                    # If retry also fails with empty function name, yield a continuation prompt
-                    if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
-                        log_warning(f"Both attempts failed with empty function name. Yielding continuation prompt.")
-                        # When the model keeps returning empty function names, it's stuck
-                        # Yield a response that encourages the model to continue its task
-                        continuation_response = ModelResponse(content="Continue with your task. Use tools as needed.")
-                        yield continuation_response
-                        assistant_message.metrics.stop_timer()
-                        log_debug(f"=== INVOKE_STREAM END (continuation prompt) ===", log_level=1)
-                        return
-
-                    # For other errors, re-raise the original error
-                    raise e
+                log_warning(f"Model returned an invalid tool call. Skipping model call and continuing: {e}")
+                log_debug(f"Not calling model again, letting agent loop continue naturally", log_level=1)
+                # When the model returns an empty function name after tool use,
+                # it means it has nothing more to say right now.
+                # Instead of calling the model again (which causes the loop to break),
+                # we should just end this stream and let the agent loop handle it.
+                # The agent will check if there are tool calls, see there are none,
+                # and either continue or end appropriately based on its logic.
+                assistant_message.metrics.stop_timer()
+                log_debug(f"=== INVOKE_STREAM END (skip model call) ===", log_level=1)
+                return
 
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -384,41 +361,17 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying without tools: {e}")
-                log_debug(f"Removing tools and retrying request", log_level=1)
-                # When the model returns an empty function name, it's not calling a tool
-                # but may want to continue with text generation. Remove tools and retry
-                # to allow the model to generate a text-only response.
-                completion_kwargs.pop('tools', None)
-                completion_kwargs.pop('tool_choice', None)
-
-                try:
-                    # Continue streaming without tools
-                    async_stream = await self.get_client().acompletion(**completion_kwargs)
-                    async for chunk in async_stream:
-                        yield self._parse_provider_response_delta(chunk)
-
-                    assistant_message.metrics.stop_timer()
-                    log_debug(f"=== AINVOKE_STREAM END (retried without tools) ===", log_level=1)
-                    return
-                except Exception as retry_e:
-                    retry_error_msg = str(retry_e)
-                    log_error(f"Retry without tools also failed: {retry_error_msg}")
-                    log_debug(f"=== AINVOKE_STREAM END (retry failed) ===", log_level=1)
-
-                    # If retry also fails with empty function name, yield a continuation prompt
-                    if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
-                        log_warning(f"Both attempts failed with empty function name. Yielding continuation prompt.")
-                        # When the model keeps returning empty function names, it's stuck
-                        # Yield a response that encourages the model to continue its task
-                        continuation_response = ModelResponse(content="Continue with your task. Use tools as needed.")
-                        yield continuation_response
-                        assistant_message.metrics.stop_timer()
-                        log_debug(f"=== AINVOKE_STREAM END (continuation prompt) ===", log_level=1)
-                        return
-
-                    # For other errors, re-raise the original error
-                    raise e
+                log_warning(f"Model returned an invalid tool call. Skipping model call and continuing: {e}")
+                log_debug(f"Not calling model again, letting agent loop continue naturally", log_level=1)
+                # When the model returns an empty function name after tool use,
+                # it means it has nothing more to say right now.
+                # Instead of calling the model again (which causes the loop to break),
+                # we should just end this stream and let the agent loop handle it.
+                # The agent will check if there are tool calls, see there are none,
+                # and either continue or end appropriately based on its logic.
+                assistant_message.metrics.stop_timer()
+                log_debug(f"=== AINVOKE_STREAM END (skip model call) ===", log_level=1)
+                return
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
