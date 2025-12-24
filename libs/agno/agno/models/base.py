@@ -1268,8 +1268,11 @@ class Model(ABC):
                     yield model_response
 
                 # Add assistant message to messages
-                # Skip adding continuation signals to history to avoid LiteLLM errors
-                if assistant_message.content is None or "<CONTINUE_LOOP>" not in assistant_message.content:
+                # Skip adding continuation signals and empty responses to history to avoid LiteLLM errors
+                if assistant_message.content in (None, "", "<CONTINUE_LOOP>"):
+                    # Don't add empty responses, continuation signals, or None content to history
+                    pass
+                else:
                     messages.append(assistant_message)
                 assistant_message.log(metrics=True)
 
@@ -1358,6 +1361,10 @@ class Model(ABC):
                 # If content is empty/None and we just had tool calls, continue the loop
                 if assistant_message.content in (None, "") and function_call_count > 0:
                     log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
+                    # Reset function_call_count to avoid infinite loop if retry keeps failing
+                    if function_call_count > 10:
+                        log_warning("Too many retry attempts. Breaking loop to prevent infinite loop.")
+                        break
                     continue
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
@@ -1503,8 +1510,11 @@ class Model(ABC):
                     yield model_response
 
                 # Add assistant message to messages
-                # Skip adding continuation signals to history to avoid LiteLLM errors
-                if assistant_message.content is None or "<CONTINUE_LOOP>" not in assistant_message.content:
+                # Skip adding continuation signals and empty responses to history to avoid LiteLLM errors
+                if assistant_message.content in (None, "", "<CONTINUE_LOOP>"):
+                    # Don't add empty responses, continuation signals, or None content to history
+                    pass
+                else:
                     messages.append(assistant_message)
                 assistant_message.log(metrics=True)
 
@@ -1593,6 +1603,10 @@ class Model(ABC):
                 # If content is empty/None and we just had tool calls, continue the loop
                 if assistant_message.content in (None, "") and function_call_count > 0:
                     log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
+                    # Reset function_call_count to avoid infinite loop if retry keeps failing
+                    if function_call_count > 10:
+                        log_warning("Too many retry attempts. Breaking loop to prevent infinite loop.")
+                        break
                     continue
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
