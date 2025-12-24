@@ -256,33 +256,15 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
-                log_debug(f"Model returned empty function name. Retrying without tools.", log_level=1)
-                # When the model returns an empty function name after tool use,
-                # it's often because it doesn't know what to do next.
-                # However, we CANNOT add any message after tool messages (LiteLLM format rule).
-                # Instead, we retry with the same messages but WITHOUT tools.
-                # This forces the model to provide a text response instead of trying to call tools.
-
-                # Retry the request without tools to get a text response
-                completion_kwargs.pop('tools', None)
-                completion_kwargs.pop('tool_choice', None)
-
-                log_debug(f"Retrying without tools (no continuation prompt added to avoid format error)", log_level=1)
-
-                # Continue streaming without tools
-                try:
-                    for chunk in self.get_client().completion(**completion_kwargs):
-                        yield self._parse_provider_response_delta(chunk)
-                except Exception as retry_error:
-                    log_error(f"Retry attempt failed: {retry_error}")
-                    log_warning("Retry failed. Providing empty response to allow loop to continue.")
-                    # If retry fails, yield an empty response to keep the loop alive
-                    empty_response = ModelResponse(content="")
-                    yield empty_response
-
+                log_warning(f"Model returned an invalid tool call. Treating as empty text response: {e}")
+                log_debug(f"Model returned empty function name. Yielding empty response.", log_level=1)
+                # When the model returns an empty function name, it's not calling a tool.
+                # Treat this as an empty text response so the tool loop can continue naturally.
+                # The base model will decide whether to continue or break based on this response.
+                empty_response = ModelResponse(content="")
+                yield empty_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== INVOKE_STREAM END (retry with continuation) ===", log_level=1)
+                log_debug(f"=== INVOKE_STREAM END (empty response) ===", log_level=1)
                 return
 
             # Check if this is a LiteLLM error about add_generation_prompt
@@ -377,34 +359,15 @@ class LiteLLM(Model):
             log_debug(f"Error message: {error_msg}", log_level=1)
 
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying with continuation prompt: {e}")
-                log_debug(f"Model returned empty function name. Retrying without tools.", log_level=1)
-                # When the model returns an empty function name after tool use,
-                # it's often because it doesn't know what to do next.
-                # However, we CANNOT add any message after tool messages (LiteLLM format rule).
-                # Instead, we retry with the same messages but WITHOUT tools.
-                # This forces the model to provide a text response instead of trying to call tools.
-
-                # Retry the request without tools to get a text response
-                completion_kwargs.pop('tools', None)
-                completion_kwargs.pop('tool_choice', None)
-
-                log_debug(f"Retrying without tools (no continuation prompt added to avoid format error)", log_level=1)
-
-                # Continue streaming without tools
-                try:
-                    async_stream = await self.get_client().acompletion(**completion_kwargs)
-                    async for chunk in async_stream:
-                        yield self._parse_provider_response_delta(chunk)
-                except Exception as retry_error:
-                    log_error(f"Retry attempt failed: {retry_error}")
-                    log_warning("Retry failed. Providing empty response to allow loop to continue.")
-                    # If retry fails, yield an empty response to keep the loop alive
-                    empty_response = ModelResponse(content="")
-                    yield empty_response
-
+                log_warning(f"Model returned an invalid tool call. Treating as empty text response: {e}")
+                log_debug(f"Model returned empty function name. Yielding empty response.", log_level=1)
+                # When the model returns an empty function name, it's not calling a tool.
+                # Treat this as an empty text response so the tool loop can continue naturally.
+                # The base model will decide whether to continue or break based on this response.
+                empty_response = ModelResponse(content="")
+                yield empty_response
                 assistant_message.metrics.stop_timer()
-                log_debug(f"=== AINVOKE_STREAM END (retry with continuation) ===", log_level=1)
+                log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
                 return
             
             # Check if this is a LiteLLM error about add_generation_prompt

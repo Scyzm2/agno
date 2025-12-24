@@ -1357,15 +1357,12 @@ class Model(ABC):
                     log_debug("Continuation signal detected. Continuing loop.", log_level=1)
                     continue
 
-                # Check if this is an empty response after a retry failure
-                # If content is empty/None and we just had tool calls, continue the loop
+                # Check if this is an empty response after tool execution
+                # If content is empty/None and we just had tool calls, the model is done
+                # Break the loop to allow the agent run to complete naturally
                 if assistant_message.content in (None, "") and function_call_count > 0:
-                    log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
-                    # Reset function_call_count to avoid infinite loop if retry keeps failing
-                    if function_call_count > 10:
-                        log_warning("Too many retry attempts. Breaking loop to prevent infinite loop.")
-                        break
-                    continue
+                    log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
+                    break
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
                 break
@@ -1599,15 +1596,12 @@ class Model(ABC):
                     log_debug("Continuation signal detected. Continuing loop.", log_level=1)
                     continue
 
-                # Check if this is an empty response after a retry failure
-                # If content is empty/None and we just had tool calls, continue the loop
+                # Check if this is an empty response after tool execution
+                # If content is empty/None and we just had tool calls, the model is done
+                # Break the loop to allow the agent run to complete naturally
                 if assistant_message.content in (None, "") and function_call_count > 0:
-                    log_debug("Empty response after tool calls. Continuing loop to retry.", log_level=1)
-                    # Reset function_call_count to avoid infinite loop if retry keeps failing
-                    if function_call_count > 10:
-                        log_warning("Too many retry attempts. Breaking loop to prevent infinite loop.")
-                        break
-                    continue
+                    log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
+                    break
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
                 break
