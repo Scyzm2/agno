@@ -271,17 +271,14 @@ class LiteLLM(Model):
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
-                log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
-                # Add a continuation prompt to the messages to allow the LLM to respond
-                # This fixes the "last message is from assistant" issue
-                messages.append(Message(role="user", content="Please continue."))
-
-                # Re-raise the exception to allow the calling code to handle the retry
-                # The messages list has been updated with the continuation prompt
-                log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
-                log_debug(f"=== AINVOKE_STREAM END (re-raise exception) ===", log_level=1)
-                log_debug(f"=== INVOKE_STREAM END (re-raise exception) ===", log_level=1)
-                raise
+                log_warning(f"LiteLLM error with add_generation_prompt. Cannot continue: {e}")
+                # When the last message is from the assistant (like our <CONTINUE_LOOP> signal),
+                # LiteLLM won't allow us to continue. In this case, we should just end the stream
+                # and let the agent loop handle the continuation naturally.
+                log_debug(f"Last message is from assistant. Ending stream gracefully.", log_level=1)
+                assistant_message.metrics.stop_timer()
+                log_debug(f"=== INVOKE_STREAM END (assistant last message) ===", log_level=1)
+                return
 
             log_error(f"Error in streaming response: {e}")
             log_debug(f"=== AINVOKE_STREAM END (uncaught exception) ===", log_level=1)
@@ -376,16 +373,14 @@ class LiteLLM(Model):
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
             elif "add_generation_prompt" in error_msg and "last message is from the assistant" in error_msg:
-                log_warning(f"LiteLLM error with add_generation_prompt. Adding continuation prompt: {e}")
-                # Add a continuation prompt to the messages to allow the LLM to respond
-                # This fixes the "last message is from assistant" issue
-                messages.append(Message(role="user", content="Please continue."))
-
-                # Re-raise the exception to allow the calling code to handle the retry
-                # The messages list has been updated with the continuation prompt
-                log_error(f"LiteLLM error with add_generation_prompt. Please retry with the updated messages.")
-                log_debug(f"=== AINVOKE_STREAM END (re-raise exception) ===", log_level=1)
-                raise
+                log_warning(f"LiteLLM error with add_generation_prompt. Cannot continue: {e}")
+                # When the last message is from the assistant (like our <CONTINUE_LOOP> signal),
+                # LiteLLM won't allow us to continue. In this case, we should just end the stream
+                # and let the agent loop handle the continuation naturally.
+                log_debug(f"Last message is from assistant. Ending stream gracefully.", log_level=1)
+                assistant_message.metrics.stop_timer()
+                log_debug(f"=== AINVOKE_STREAM END (assistant last message) ===", log_level=1)
+                return
             
             log_error(f"Error in streaming response: {e}")
             log_debug(f"=== AINVOKE_STREAM END (uncaught exception) ===", log_level=1)
