@@ -277,13 +277,15 @@ class LiteLLM(Model):
                     log_error(f"Retry without tools also failed: {retry_error_msg}")
                     log_debug(f"=== INVOKE_STREAM END (retry failed) ===", log_level=1)
 
-                    # If retry also fails with empty function name, just yield empty response
+                    # If retry also fails with empty function name, yield a continuation prompt
                     if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
-                        log_warning(f"Both attempts failed with empty function name. Yielding empty response.")
-                        empty_response = ModelResponse(content="")
-                        yield empty_response
+                        log_warning(f"Both attempts failed with empty function name. Yielding continuation prompt.")
+                        # When the model keeps returning empty function names, it's stuck
+                        # Yield a response that encourages the model to continue its task
+                        continuation_response = ModelResponse(content="Continue with your task. Use tools as needed.")
+                        yield continuation_response
                         assistant_message.metrics.stop_timer()
-                        log_debug(f"=== INVOKE_STREAM END (empty response) ===", log_level=1)
+                        log_debug(f"=== INVOKE_STREAM END (continuation prompt) ===", log_level=1)
                         return
 
                     # For other errors, re-raise the original error
@@ -404,13 +406,15 @@ class LiteLLM(Model):
                     log_error(f"Retry without tools also failed: {retry_error_msg}")
                     log_debug(f"=== AINVOKE_STREAM END (retry failed) ===", log_level=1)
 
-                    # If retry also fails with empty function name, just yield empty response
+                    # If retry also fails with empty function name, yield a continuation prompt
                     if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
-                        log_warning(f"Both attempts failed with empty function name. Yielding empty response.")
-                        empty_response = ModelResponse(content="")
-                        yield empty_response
+                        log_warning(f"Both attempts failed with empty function name. Yielding continuation prompt.")
+                        # When the model keeps returning empty function names, it's stuck
+                        # Yield a response that encourages the model to continue its task
+                        continuation_response = ModelResponse(content="Continue with your task. Use tools as needed.")
+                        yield continuation_response
                         assistant_message.metrics.stop_timer()
-                        log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
+                        log_debug(f"=== AINVOKE_STREAM END (continuation prompt) ===", log_level=1)
                         return
 
                     # For other errors, re-raise the original error
