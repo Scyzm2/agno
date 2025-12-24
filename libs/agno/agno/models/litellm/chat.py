@@ -243,17 +243,10 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying without tools to get text response: {e}")
+                log_warning(f"Model returned an invalid tool call. Skipping empty function name: {e}")
                 # When the model returns an empty function name, it's not calling a tool
-                # We should retry without tools to allow the model to generate a normal text response
-                # Remove tools from the request and retry
-                retry_kwargs = completion_kwargs.copy()
-                retry_kwargs.pop('tools', None)
-                retry_kwargs.pop('tool_choice', None)
-
-                for chunk in self.get_client().completion(**retry_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
-
+                # We should skip this response entirely and let the tool loop continue
+                # This allows the agent to make another decision about what to do next
                 assistant_message.metrics.stop_timer()
                 return
             
@@ -334,18 +327,10 @@ class LiteLLM(Model):
             # This can happen when the model returns a malformed tool call
             error_msg = str(e)
             if "Function name" in error_msg and "must be a-z" in error_msg:
-                log_warning(f"Model returned an invalid tool call. Retrying without tools to get text response: {e}")
+                log_warning(f"Model returned an invalid tool call. Skipping empty function name: {e}")
                 # When the model returns an empty function name, it's not calling a tool
-                # We should retry without tools to allow the model to generate a normal text response
-                # Remove tools from the request and retry
-                retry_kwargs = completion_kwargs.copy()
-                retry_kwargs.pop('tools', None)
-                retry_kwargs.pop('tool_choice', None)
-
-                async_stream = await self.get_client().acompletion(**retry_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
-
+                # We should skip this response entirely and let the tool loop continue
+                # This allows the agent to make another decision about what to do next
                 assistant_message.metrics.stop_timer()
                 return
             
