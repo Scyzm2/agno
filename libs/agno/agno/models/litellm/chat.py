@@ -265,13 +265,14 @@ class LiteLLM(Model):
                 # contaminating the shared messages list that would cause LiteLLM errors
 
                 # Add continuation prompt to the request messages (not the shared messages list)
+                # Use user role instead of system to avoid "Unexpected role 'system' after role 'tool'" error
                 continuation_prompt = Message(
-                    role="system",
+                    role="user",
                     content="Continue with your task. Use tools as needed, or provide a final response.")
                 # Get the formatted messages and add our continuation prompt
                 formatted_messages = self._format_messages(messages, compress_tool_results)
                 formatted_messages.append({
-                    "role": "system",
+                    "role": "user",
                     "content": "Continue with your task. Use tools as needed, or provide a final response."
                 })
                 completion_kwargs["messages"] = formatted_messages
@@ -398,13 +399,14 @@ class LiteLLM(Model):
                 # contaminating the shared messages list that would cause LiteLLM errors
 
                 # Add continuation prompt to the request messages (not the shared messages list)
+                # Use user role instead of system to avoid "Unexpected role 'system' after role 'tool'" error
                 continuation_prompt = Message(
-                    role="system",
+                    role="user",
                     content="Continue with your task. Use tools as needed, or provide a final response.")
                 # Get the formatted messages and add our continuation prompt
                 formatted_messages = self._format_messages(messages, compress_tool_results)
                 formatted_messages.append({
-                    "role": "system",
+                    "role": "user",
                     "content": "Continue with your task. Use tools as needed, or provide a final response."
                 })
                 completion_kwargs["messages"] = formatted_messages
