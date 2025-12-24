@@ -264,13 +264,30 @@ class LiteLLM(Model):
                 completion_kwargs.pop('tools', None)
                 completion_kwargs.pop('tool_choice', None)
 
-                # Continue streaming without tools
-                for chunk in self.get_client().completion(**completion_kwargs):
-                    yield self._parse_provider_response_delta(chunk)
+                try:
+                    # Continue streaming without tools
+                    for chunk in self.get_client().completion(**completion_kwargs):
+                        yield self._parse_provider_response_delta(chunk)
 
-                assistant_message.metrics.stop_timer()
-                log_debug(f"=== INVOKE_STREAM END (retried without tools) ===", log_level=1)
-                return
+                    assistant_message.metrics.stop_timer()
+                    log_debug(f"=== INVOKE_STREAM END (retried without tools) ===", log_level=1)
+                    return
+                except Exception as retry_e:
+                    retry_error_msg = str(retry_e)
+                    log_error(f"Retry without tools also failed: {retry_error_msg}")
+                    log_debug(f"=== INVOKE_STREAM END (retry failed) ===", log_level=1)
+
+                    # If retry also fails with empty function name, just yield empty response
+                    if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
+                        log_warning(f"Both attempts failed with empty function name. Yielding empty response.")
+                        empty_response = ModelResponse(content="")
+                        yield empty_response
+                        assistant_message.metrics.stop_timer()
+                        log_debug(f"=== INVOKE_STREAM END (empty response) ===", log_level=1)
+                        return
+
+                    # For other errors, re-raise the original error
+                    raise e
 
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
@@ -373,14 +390,31 @@ class LiteLLM(Model):
                 completion_kwargs.pop('tools', None)
                 completion_kwargs.pop('tool_choice', None)
 
-                # Continue streaming without tools
-                async_stream = await self.get_client().acompletion(**completion_kwargs)
-                async for chunk in async_stream:
-                    yield self._parse_provider_response_delta(chunk)
+                try:
+                    # Continue streaming without tools
+                    async_stream = await self.get_client().acompletion(**completion_kwargs)
+                    async for chunk in async_stream:
+                        yield self._parse_provider_response_delta(chunk)
 
-                assistant_message.metrics.stop_timer()
-                log_debug(f"=== AINVOKE_STREAM END (retried without tools) ===", log_level=1)
-                return
+                    assistant_message.metrics.stop_timer()
+                    log_debug(f"=== AINVOKE_STREAM END (retried without tools) ===", log_level=1)
+                    return
+                except Exception as retry_e:
+                    retry_error_msg = str(retry_e)
+                    log_error(f"Retry without tools also failed: {retry_error_msg}")
+                    log_debug(f"=== AINVOKE_STREAM END (retry failed) ===", log_level=1)
+
+                    # If retry also fails with empty function name, just yield empty response
+                    if "Function name" in retry_error_msg and "must be a-z" in retry_error_msg:
+                        log_warning(f"Both attempts failed with empty function name. Yielding empty response.")
+                        empty_response = ModelResponse(content="")
+                        yield empty_response
+                        assistant_message.metrics.stop_timer()
+                        log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
+                        return
+
+                    # For other errors, re-raise the original error
+                    raise e
             
             # Check if this is a LiteLLM error about add_generation_prompt
             # This can happen when the last message is from the assistant
