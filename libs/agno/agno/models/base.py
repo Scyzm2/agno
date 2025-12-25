@@ -795,6 +795,8 @@ class Model(ABC):
             _compression_manager = compression_manager if _compress_tool_results else None
 
             function_call_count = 0
+            error_retry_count = 0
+            max_error_retries = 3  # Maximum number of times to retry after an error response
 
             while True:
                 # Compress existing tool results BEFORE making API call to avoid context overflow
@@ -1359,8 +1361,19 @@ class Model(ABC):
 
                 # Check if this is an empty response after tool execution
                 # If content is empty/None and we just had tool calls, the model is done
+                # BUT only if this wasn't due to an error (like malformed tool call)
                 # Break the loop to allow the agent run to complete naturally
                 if assistant_message.content in (None, "") and function_call_count > 0:
+                    # Check if this empty response was due to an error
+                    # If so, we should continue the loop to give the model another chance
+                    if hasattr(assistant_message, 'is_error_response') and assistant_message.is_error_response:
+                        error_retry_count += 1
+                        if error_retry_count > max_error_retries:
+                            log_warning(f"Max error retries ({max_error_retries}) reached. Breaking loop.", log_level=1)
+                            log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
+                            break
+                        log_debug(f"Empty response after tool calls was due to an error (retry {error_retry_count}/{max_error_retries}). Continuing loop to retry.", log_level=1)
+                        continue
                     log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
                     break
 
@@ -1463,6 +1476,8 @@ class Model(ABC):
             _compression_manager = compression_manager if _compress_tool_results else None
 
             function_call_count = 0
+            error_retry_count = 0
+            max_error_retries = 3  # Maximum number of times to retry after an error response
 
             while True:
                 # Compress existing tool results BEFORE making API call to avoid context overflow
@@ -1598,8 +1613,19 @@ class Model(ABC):
 
                 # Check if this is an empty response after tool execution
                 # If content is empty/None and we just had tool calls, the model is done
+                # BUT only if this wasn't due to an error (like malformed tool call)
                 # Break the loop to allow the agent run to complete naturally
                 if assistant_message.content in (None, "") and function_call_count > 0:
+                    # Check if this empty response was due to an error
+                    # If so, we should continue the loop to give the model another chance
+                    if hasattr(assistant_message, 'is_error_response') and assistant_message.is_error_response:
+                        error_retry_count += 1
+                        if error_retry_count > max_error_retries:
+                            log_warning(f"Max error retries ({max_error_retries}) reached. Breaking loop.", log_level=1)
+                            log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
+                            break
+                        log_debug(f"Empty response after tool calls was due to an error (retry {error_retry_count}/{max_error_retries}). Continuing loop to retry.", log_level=1)
+                        continue
                     log_debug("Empty response after tool calls. Model is done. Breaking loop.", log_level=1)
                     break
 

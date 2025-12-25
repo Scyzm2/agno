@@ -364,7 +364,8 @@ class LiteLLM(Model):
                 # When the model returns an empty function name, it's not calling a tool.
                 # Treat this as an empty text response so the tool loop can continue naturally.
                 # The base model will decide whether to continue or break based on this response.
-                empty_response = ModelResponse(content="")
+                # Mark this as an error response so the loop knows not to break prematurely.
+                empty_response = ModelResponse(content="", is_error_response=True)
                 yield empty_response
                 assistant_message.metrics.stop_timer()
                 log_debug(f"=== AINVOKE_STREAM END (empty response) ===", log_level=1)
