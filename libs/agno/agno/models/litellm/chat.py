@@ -345,7 +345,6 @@ class LiteLLM(Model):
             chunk_count = 0
             async for chunk in async_stream:
                 chunk_count += 1
-                log_debug(f"Received async chunk {chunk_count}: {chunk}", log_level=1)
                 yield self._parse_provider_response_delta(chunk)
 
             log_debug(f"Async stream completed normally. Total chunks: {chunk_count}", log_level=1)
