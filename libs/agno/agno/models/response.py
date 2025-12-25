@@ -109,9 +109,6 @@ class ModelResponse:
 
     event: str = ModelResponseEvent.assistant_response.value
 
-    # Flag to indicate if this empty response was due to an error (e.g., malformed tool call)
-    is_error_response: bool = False
-
     provider_data: Optional[Dict[str, Any]] = None
 
     redacted_reasoning_content: Optional[str] = None
