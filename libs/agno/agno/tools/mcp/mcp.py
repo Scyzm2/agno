@@ -311,30 +311,6 @@ class MCPTools(Toolkit):
             log_error(f"Failed to get tools for {str(self)}: {e}")
             raise
 
-    async def confirm_all_pending(self) -> dict:
-        """
-        Confirm all pending file changes across all workspace codes.
-        This tool ensures that any files created or modified with new_file() or overwrite()
-        but not yet confirmed are saved to disk.
-        
-        Returns:
-            dict: Summary of confirmed changes including workspace codes and file paths
-        """
-        if self.session is None:
-            raise ValueError("Session is not initialized")
-        
-        try:
-            # Call the confirm_all_pending tool on the MCP server
-            result = await self.session.call_tool(
-                "confirm_all_pending",
-                {}
-            )
-            log_info(f"Confirmed all pending changes: {result}")
-            return result
-        except Exception as e:
-            log_error(f"Failed to confirm all pending changes: {e}")
-            raise
-
     async def initialize(self) -> None:
         """Initialize the MCP toolkit by getting available tools from the MCP server"""
         if self._initialized:
