@@ -29,16 +29,8 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession):
     """
 
     async def call_tool(tool_name: str, **kwargs) -> ToolResult:
-        # Try to send ping, but don't fail if event loop is closed or session is not ready
         try:
             await session.send_ping()
-        except RuntimeError as e:
-            if "Event loop is closed" in str(e):
-                # Event loop is closed, this can happen when tools are called from
-                # frameworks like CrewAI that use ThreadPoolExecutor
-                log_debug(f"Event loop is closed, skipping ping: {e}")
-            else:
-                log_exception(e)
         except Exception as e:
             log_exception(e)
 
