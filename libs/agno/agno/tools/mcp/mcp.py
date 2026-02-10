@@ -137,48 +137,49 @@ class MCPTools(Toolkit):
 
         def cleanup():
             """Cancel active connections and close async contexts"""
+            import asyncio
+
             if self._connection_task and not self._connection_task.done():
                 self._connection_task.cancel()
 
-            # Close session context if it exists (this properly closes async generators)
-            if self._session_context is not None:
+            async def _close_contexts():
+                """Properly close all async contexts"""
                 try:
-                    # Call __aexit__ synchronously by running it in a new event loop
-                    import asyncio
-
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        loop.run_until_complete(self._session_context.__aexit__(None, None, None))
-                    except Exception:
-                        pass
-                    finally:
-                        loop.run_until_complete(asyncio.sleep(0))
-                        loop.close()
+                    if self._session_context is not None:
+                        await self._session_context.__aexit__(None, None, None)
+                except Exception:
+                    pass
+                try:
+                    if self._context is not None:
+                        await self._context.__aexit__(None, None, None)
                 except Exception:
                     pass
 
-            # Close main context if it exists
-            if self._context is not None:
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
                 try:
-                    import asyncio
-
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        loop.run_until_complete(self._context.__aexit__(None, None, None))
-                    except Exception:
-                        pass
-                    finally:
-                        loop.run_until_complete(asyncio.sleep(0))
-                        loop.close()
+                    loop.run_until_complete(_close_contexts())
+                    loop.run_until_complete(asyncio.sleep(0.1))
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        if not task.done():
+                            task.cancel()
+                    if pending:
+                        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                 except Exception:
                     pass
+                finally:
+                    try:
+                        loop.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
             self._session_context = None
             self._context = None
 
-        # Setup cleanup logic before the instance is garbage collected
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
 
     @property
