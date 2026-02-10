@@ -1,4 +1,3 @@
-import threading
 import weakref
 from dataclasses import asdict
 from datetime import timedelta
@@ -17,37 +16,6 @@ try:
     from mcp.client.streamable_http import streamablehttp_client
 except (ImportError, ModuleNotFoundError):
     raise ImportError("`mcp` not installed. Please install using `pip install mcp`")
-
-
-def _cleanup_async_context(context, session_context):
-    """Run async cleanup in a separate thread to properly close async contexts."""
-    import asyncio
-
-    async def do_cleanup():
-        try:
-            if session_context is not None:
-                try:
-                    await session_context.__aexit__(None, None, None)
-                except Exception:
-                    pass
-            if context is not None:
-                try:
-                    await context.__aexit__(None, None, None)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(do_cleanup())
-            loop.run_until_complete(asyncio.sleep(0))
-        finally:
-            loop.close()
-    except Exception:
-        pass
 
 
 class MCPTools(Toolkit):
@@ -168,7 +136,6 @@ class MCPTools(Toolkit):
         self._session_context = None
 
         def cleanup():
-<<<<<<< Updated upstream
             """Cancel active connections and close async contexts"""
             if self._connection_task and not self._connection_task.done():
                 self._connection_task.cancel()
@@ -210,27 +177,6 @@ class MCPTools(Toolkit):
 
             self._session_context = None
             self._context = None
-=======
-            """Cancel active connections and clean up pending async contexts.
-
-            Uses a background thread to run async cleanup, which ensures that
-            async generators in the SSE/streamable-http clients are properly
-            closed before the object is garbage collected.
-            """
-            if self._connection_task and not self._connection_task.done():
-                self._connection_task.cancel()
-
-            context = self._context
-            session_context = self._session_context
-
-            self._context = None
-            self._session_context = None
-            self._active_contexts = []
-
-            if context is not None or session_context is not None:
-                thread = threading.Thread(target=_cleanup_async_context, args=(context, session_context), daemon=True)
-                thread.start()
->>>>>>> Stashed changes
 
         # Setup cleanup logic before the instance is garbage collected
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
