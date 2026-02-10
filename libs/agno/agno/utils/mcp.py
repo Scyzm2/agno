@@ -2,7 +2,7 @@ import json
 from functools import partial
 from uuid import uuid4
 
-from agno.utils.log import log_debug, log_exception
+from agno.utils.log import log_debug, log_error, log_exception
 
 try:
     from mcp import ClientSession
@@ -29,13 +29,27 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession):
     """
 
     async def call_tool(tool_name: str, **kwargs) -> ToolResult:
+        import traceback as tb
+
+        if session is None:
+            error_msg = "Error: MCP session is None - connection not established"
+            log_error(error_msg)
+            return ToolResult(content=error_msg)
+
         try:
+            log_debug(f"MCP ping for '{tool_name}'...")
             await session.send_ping()
+            log_debug(f"MCP ping successful for '{tool_name}'")
         except Exception as e:
-            log_exception(e)
+            error_msg = f"Error: MCP connection ping failed - {e}"
+            log_error(error_msg)
+            log_debug(f"Ping exception traceback:\n{tb.format_exc()}")
+            return ToolResult(content=error_msg)
 
         try:
             log_debug(f"Calling MCP Tool '{tool_name}' with args: {kwargs}")
+            log_debug(f"MCP session: {id(session)}, type: {type(session)}")
+            log_debug(f"MCP transport: {getattr(session, '_transport', 'unknown')}")
             result: CallToolResult = await session.call_tool(tool_name, kwargs)  # type: ignore
 
             # Return an error if the tool call failed
@@ -122,8 +136,11 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession):
                 images=images if images else None,
             )
         except Exception as e:
-            log_exception(f"Failed to call MCP tool '{tool_name}': {e}")
-            return ToolResult(content=f"Error: {e}")
+            log_error(f"Failed to call MCP tool '{tool_name}': {e}")
+            log_debug(f"Tool call exception traceback:\n{tb.format_exc()}")
+
+            error_msg = f"Error: {e}\n{tb.format_exc()}"
+            return ToolResult(content=error_msg)
 
     return partial(call_tool, tool_name=tool.name)
 

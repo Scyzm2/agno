@@ -876,6 +876,7 @@ class Agent:
 
     async def _connect_mcp_tools(self) -> None:
         """Connect the MCP tools to the agent."""
+        log_debug(f"[Agent] _connect_mcp_tools() called, tools count: {len(self.tools) if self.tools else 0}")
         if self.tools:
             for tool in self.tools:
                 # Alternate method of using isinstance(tool, (MCPTools, MultiMCPTools)) to avoid imports
@@ -885,8 +886,12 @@ class Agent:
                     and not tool.initialized  # type: ignore
                 ):
                     try:
+                        log_debug(
+                            f"[Agent] Connecting MCP tool: {id(tool)}, include_tools={getattr(tool, 'include_tools', None)}"
+                        )
                         # Connect the MCP server
                         await tool.connect()  # type: ignore
+                        log_debug(f"[Agent] MCP tool {id(tool)} connected successfully")
                         self._mcp_tools_initialized_on_run.append(tool)  # type: ignore
                     except Exception as e:
                         log_warning(f"Error connecting tool: {str(e)}")

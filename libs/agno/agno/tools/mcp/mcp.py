@@ -210,9 +210,11 @@ class MCPTools(Toolkit):
 
     async def connect(self, force: bool = False):
         """Initialize a MCPTools instance and connect to the contextual MCP server"""
+        log_debug(f"[MCPTools] connect() called for {id(self)}, force={force}, _initialized={self._initialized}")
 
         if force:
             # Clean up the session and context so we force a new connection
+            log_debug(f"[MCPTools] Forcing new connection for {id(self)}")
             self.session = None
             self._context = None
             self._session_context = None
@@ -221,6 +223,7 @@ class MCPTools(Toolkit):
             self._active_contexts = []
 
         if self._initialized:
+            log_debug(f"[MCPTools] Already initialized, skipping connect for {id(self)}")
             return
 
         try:
@@ -230,13 +233,18 @@ class MCPTools(Toolkit):
 
     async def _connect(self) -> None:
         """Connects to the MCP server and initializes the tools"""
+        log_debug(f"[MCPTools] _connect() starting for {id(self)}, transport={self.transport}")
 
         if self._initialized:
+            log_debug(f"[MCPTools] Already initialized in _connect for {id(self)}")
             return
 
         if self.session is not None:
+            log_debug(f"[MCPTools] Session exists, calling initialize() for {id(self)}")
             await self.initialize()
             return
+
+        log_debug(f"[MCPTools] Creating new connection for {id(self)}, timeout={self.timeout_seconds}s")
 
         # Create a new studio session
         if self.transport == "sse":
@@ -276,22 +284,27 @@ class MCPTools(Toolkit):
 
     async def close(self) -> None:
         """Close the MCP connection and clean up resources"""
+        log_debug(f"[MCPTools] close() called for {id(self)}, _initialized={self._initialized}")
         if not self._initialized:
+            log_debug(f"[MCPTools] Not initialized, skipping close for {id(self)}")
             return
 
         try:
             if self._session_context is not None:
+                log_debug(f"[MCPTools] Closing session context for {id(self)}")
                 await self._session_context.__aexit__(None, None, None)
                 self.session = None
                 self._session_context = None
 
             if self._context is not None:
+                log_debug(f"[MCPTools] Closing context for {id(self)}")
                 await self._context.__aexit__(None, None, None)
                 self._context = None
         except (RuntimeError, BaseException) as e:
-            log_error(f"Failed to close MCP connection: {e}")
+            log_error(f"Failed to close MCP connection for {id(self)}: {e}")
 
         self._initialized = False
+        log_debug(f"[MCPTools] close() completed for {id(self)}")
 
     async def __aenter__(self) -> "MCPTools":
         await self._connect()
@@ -312,12 +325,14 @@ class MCPTools(Toolkit):
 
     async def build_tools(self) -> None:
         """Build the tools for the MCP toolkit"""
+        log_debug(f"[MCPTools] build_tools() called for {id(self)}, include_tools={self.include_tools}")
         if self.session is None:
             raise ValueError("Session is not initialized")
 
         try:
             # Get the list of tools from the MCP server
             available_tools = await self.session.list_tools()  # type: ignore
+            log_debug(f"[MCPTools] Got {len(available_tools.tools)} tools from server for {id(self)}")
 
             self._check_tools_filters(
                 available_tools=[tool.name for tool in available_tools.tools],
@@ -332,6 +347,8 @@ class MCPTools(Toolkit):
                     continue
                 if self.include_tools is None or tool.name in self.include_tools:
                     filtered_tools.append(tool)
+
+            log_debug(f"[MCPTools] Filtered to {len(filtered_tools)} tools for {id(self)}")
 
             # Get tool name prefix if available
             tool_name_prefix = ""
