@@ -1,3 +1,4 @@
+import threading
 import weakref
 from contextlib import AsyncExitStack
 from dataclasses import asdict
@@ -18,6 +19,38 @@ try:
     from mcp.client.streamable_http import streamablehttp_client
 except (ImportError, ModuleNotFoundError):
     raise ImportError("`mcp` not installed. Please install using `pip install mcp`")
+
+
+def _cleanup_multi_mcp(async_exit_stack, sessions):
+    """Run async cleanup in a separate thread to properly close async contexts."""
+    import asyncio
+
+    async def do_cleanup():
+        try:
+            if async_exit_stack is not None:
+                try:
+                    await async_exit_stack.aclose()
+                except Exception:
+                    pass
+
+            for session in sessions:
+                try:
+                    await session.__aexit__(None, None, None)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(do_cleanup())
+            loop.run_until_complete(asyncio.sleep(0))
+        finally:
+            loop.close()
+    except Exception:
+        pass
 
 
 class MultiMCPTools(Toolkit):
@@ -134,6 +167,7 @@ class MultiMCPTools(Toolkit):
         self.allow_partial_failure = allow_partial_failure
 
         def cleanup():
+<<<<<<< Updated upstream
             """Cancel active connections and close async contexts"""
             if self._connection_task and not self._connection_task.done():
                 self._connection_task.cancel()
@@ -173,6 +207,26 @@ class MultiMCPTools(Toolkit):
                     pass
 
             self._sessions = []
+=======
+            """Cancel active connections and clean up pending async contexts.
+
+            Uses a background thread to run async cleanup, which ensures that
+            async generators in the SSE/streamable-http clients are properly
+            closed before the object is garbage collected.
+            """
+            if self._connection_task and not self._connection_task.done():
+                self._connection_task.cancel()
+
+            async_exit_stack = self._async_exit_stack
+            sessions = self._sessions
+
+            self._sessions = []
+            self._async_exit_stack = None
+
+            if async_exit_stack is not None or sessions:
+                thread = threading.Thread(target=_cleanup_multi_mcp, args=(async_exit_stack, sessions), daemon=True)
+                thread.start()
+>>>>>>> Stashed changes
 
         # Setup cleanup logic before the instance is garbage collected
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
