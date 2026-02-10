@@ -2601,7 +2601,9 @@ class Team:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the team's lifetime.
+            # The caller manages the connection lifecycle.
 
             # Cancel background task on error (await_for_open_threads handles waiting on success)
             if memory_task is not None and not memory_task.done():
@@ -2994,7 +2996,9 @@ class Team:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the team's lifetime.
+            # The caller manages the connection lifecycle.
 
             # Cancel background task on error (await_for_thread_tasks_stream handles waiting on success)
             if memory_task is not None and not memory_task.done():

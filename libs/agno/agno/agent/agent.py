@@ -2239,8 +2239,10 @@ class Agent:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            # Always disconnect MCP tools
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the agent's lifetime.
+            # The caller (e.g., DreamTeam's TaskManager) manages the connection lifecycle.
+            # Auto-disconnecting after every run causes "ClosedResourceError" on subsequent tool calls.
 
             # Cancel background tasks on error (await_for_open_threads handles waiting on success)
             if memory_task is not None and not memory_task.done():
@@ -2702,8 +2704,9 @@ class Agent:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            # Always disconnect MCP tools
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the agent's lifetime.
+            # The caller manages the connection lifecycle.
 
             # Cancel background tasks on error (await_for_thread_tasks_stream handles waiting on success)
             if memory_task is not None and not memory_task.done():
@@ -4169,8 +4172,9 @@ class Agent:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            # Always disconnect MCP tools
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the agent's lifetime.
+            # The caller manages the connection lifecycle.
 
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore
@@ -4579,8 +4583,9 @@ class Agent:
         finally:
             # Always disconnect connectable tools
             self._disconnect_connectable_tools()
-            # Always disconnect MCP tools
-            await self._disconnect_mcp_tools()
+            # NOTE: We intentionally do NOT disconnect MCP tools here.
+            # MCPTools connections must remain alive throughout the agent's lifetime.
+            # The caller manages the connection lifecycle.
 
             # Always clean up the run tracking
             await acleanup_run(run_response.run_id)  # type: ignore
