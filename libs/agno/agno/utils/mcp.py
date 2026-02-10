@@ -1,3 +1,4 @@
+import asyncio
 import json
 from functools import partial
 from uuid import uuid4
@@ -15,6 +16,9 @@ except (ImportError, ModuleNotFoundError):
 from agno.media import Image
 from agno.tools.function import ToolResult
 
+# Global lock to prevent simultaneous reconnection attempts
+_reconnect_lock = asyncio.Lock()
+
 
 def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=None):
     """
@@ -22,8 +26,8 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=Non
 
     Args:
         tool: The MCP tool to create an entrypoint for
-        session: The session to use
-        mcp_tools: Optional reference to the MCPTools instance for reconnection
+        session: The session to use (deprecated - use mcp_tools.session instead)
+        mcp_tools: Reference to the MCPTools instance for dynamic session access
 
     Returns:
         Callable: The entrypoint function for the tool
@@ -32,7 +36,14 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=Non
     async def call_tool(tool_name: str, **kwargs) -> ToolResult:
         import traceback as tb
 
-        current_session = session
+        # Always get the current session from mcp_tools, not the captured session
+        current_session = None
+        if mcp_tools is not None:
+            current_session = getattr(mcp_tools, "session", None)
+
+        # Fallback to captured session if mcp_tools.session is None
+        if current_session is None:
+            current_session = session
 
         if current_session is None:
             error_msg = "Error: MCP session is None - connection not established"
@@ -50,13 +61,16 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=Non
             if mcp_tools is not None:
                 log_debug(f"Attempting to reconnect MCP tools...")
                 try:
-                    await mcp_tools.connect(force=True)
-                    current_session = mcp_tools.session
-                    log_debug(f"Reconnected, new session: {id(current_session)}")
+                    # Use a lock to prevent simultaneous reconnection attempts
+                    async with _reconnect_lock:
+                        log_debug(f"Reconnection lock acquired for '{tool_name}'")
+                        await mcp_tools.connect(force=True)
+                        current_session = mcp_tools.session
+                        log_debug(f"Reconnected, new session: {id(current_session)}")
 
-                    # Ping the new session to verify it works
-                    await current_session.send_ping()
-                    log_debug(f"Reconnection successful, ping successful")
+                        # Ping the new session to verify it works
+                        await current_session.send_ping()
+                        log_debug(f"Reconnection successful, ping successful")
                 except Exception as reconnect_error:
                     log_error(f"Failed to reconnect MCP tools: {reconnect_error}")
                     error_msg = f"Error: MCP connection lost and reconnection failed - {reconnect_error}"
