@@ -303,8 +303,8 @@ class MCPTools(Toolkit):
             # Register the tools with the toolkit
             for tool in filtered_tools:
                 try:
-                    # Get an entrypoint for the tool
-                    entrypoint = get_entrypoint_for_tool(tool, self.session)  # type: ignore
+                    # Get an entrypoint for the tool, passing self for reconnection support
+                    entrypoint = get_entrypoint_for_tool(tool, self.session, self)  # type: ignore
                     # Create a Function for the tool
                     f = Function(
                         name=tool_name_prefix + tool.name,

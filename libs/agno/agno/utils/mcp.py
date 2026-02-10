@@ -16,13 +16,14 @@ from agno.media import Image
 from agno.tools.function import ToolResult
 
 
-def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession):
+def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=None):
     """
     Return an entrypoint for an MCP tool.
 
     Args:
         tool: The MCP tool to create an entrypoint for
         session: The session to use
+        mcp_tools: Optional reference to the MCPTools instance for reconnection
 
     Returns:
         Callable: The entrypoint function for the tool
@@ -31,26 +32,45 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession):
     async def call_tool(tool_name: str, **kwargs) -> ToolResult:
         import traceback as tb
 
-        if session is None:
+        current_session = session
+
+        if current_session is None:
             error_msg = "Error: MCP session is None - connection not established"
             log_error(error_msg)
             return ToolResult(content=error_msg)
 
         try:
             log_debug(f"MCP ping for '{tool_name}'...")
-            await session.send_ping()
+            await current_session.send_ping()
             log_debug(f"MCP ping successful for '{tool_name}'")
         except Exception as e:
-            error_msg = f"Error: MCP connection ping failed - {e}"
-            log_error(error_msg)
-            log_debug(f"Ping exception traceback:\n{tb.format_exc()}")
-            return ToolResult(content=error_msg)
+            log_debug(f"MCP ping failed for '{tool_name}': {e}")
+
+            # Try to reconnect if we have access to MCPTools instance
+            if mcp_tools is not None:
+                log_debug(f"Attempting to reconnect MCP tools...")
+                try:
+                    await mcp_tools.connect(force=True)
+                    current_session = mcp_tools.session
+                    log_debug(f"Reconnected, new session: {id(current_session)}")
+
+                    # Ping the new session to verify it works
+                    await current_session.send_ping()
+                    log_debug(f"Reconnection successful, ping successful")
+                except Exception as reconnect_error:
+                    log_error(f"Failed to reconnect MCP tools: {reconnect_error}")
+                    error_msg = f"Error: MCP connection lost and reconnection failed - {reconnect_error}"
+                    return ToolResult(content=error_msg)
+            else:
+                error_msg = f"Error: MCP connection ping failed - {e}"
+                log_debug(f"Ping exception traceback:\n{tb.format_exc()}")
+                return ToolResult(content=error_msg)
 
         try:
             log_debug(f"Calling MCP Tool '{tool_name}' with args: {kwargs}")
-            log_debug(f"MCP session: {id(session)}, type: {type(session)}")
-            log_debug(f"MCP transport: {getattr(session, '_transport', 'unknown')}")
-            result: CallToolResult = await session.call_tool(tool_name, kwargs)  # type: ignore
+            log_debug(f"MCP session: {id(current_session)}, type: {type(current_session)}")
+            log_debug(f"MCP transport: {getattr(current_session, '_transport', 'unknown')}")
+            result: CallToolResult = await current_session.call_tool(tool_name, kwargs)  # type: ignore
 
             # Return an error if the tool call failed
             if result.isError:
