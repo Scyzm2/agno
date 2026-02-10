@@ -1177,10 +1177,6 @@ class Model(ABC):
         # Populate assistant message from stream data after the stream ends
         self._populate_assistant_message_from_stream_data(assistant_message=assistant_message, stream_data=stream_data)
 
-        # Log the final tool calls for debugging
-        if assistant_message.tool_calls:
-            log_debug(f"Final assistant message has {len(assistant_message.tool_calls)} tool calls", log_level=1)
-
     def response_stream(
         self,
         messages: List[Message],
@@ -1421,10 +1417,6 @@ class Model(ABC):
         # Populate assistant message from stream data after the stream ends
         self._populate_assistant_message_from_stream_data(assistant_message=assistant_message, stream_data=stream_data)
 
-        # Log the final tool calls for debugging
-        if assistant_message.tool_calls:
-            log_debug(f"Final assistant message has {len(assistant_message.tool_calls)} tool calls", log_level=1)
-
     async def aresponse_stream(
         self,
         messages: List[Message],
@@ -1663,10 +1655,7 @@ class Model(ABC):
         if stream_data.response_file:
             assistant_message.file_output = stream_data.response_file
         if stream_data.response_tool_calls and len(stream_data.response_tool_calls) > 0:
-            log_debug(f"Processing {len(stream_data.response_tool_calls)} accumulated tool calls", log_level=1)
-            parsed_tool_calls = self.parse_tool_calls(stream_data.response_tool_calls)
-            log_debug(f"Parsed tool calls: {len(parsed_tool_calls)} tool calls", log_level=1)
-            assistant_message.tool_calls = parsed_tool_calls
+            assistant_message.tool_calls = self.parse_tool_calls(stream_data.response_tool_calls)
 
     def _populate_stream_data(
         self, stream_data: MessageData, model_response_delta: ModelResponse
@@ -1708,12 +1697,8 @@ class Model(ABC):
         if model_response_delta.tool_calls is not None:
             if stream_data.response_tool_calls is None:
                 stream_data.response_tool_calls = []
-            # Only extend and set should_yield if there are actual tool calls to add
-            if len(model_response_delta.tool_calls) > 0:
-                stream_data.response_tool_calls.extend(model_response_delta.tool_calls)
-                should_yield = True
-                # Log debug info for tool calls
-                log_debug(f"Accumulated tool calls: {len(stream_data.response_tool_calls)} total", log_level=1)
+            stream_data.response_tool_calls.extend(model_response_delta.tool_calls)
+            should_yield = True
 
         if model_response_delta.audio is not None and isinstance(model_response_delta.audio, Audio):
             if stream_data.response_audio is None:
