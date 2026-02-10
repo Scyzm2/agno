@@ -134,9 +134,45 @@ class MultiMCPTools(Toolkit):
         self.allow_partial_failure = allow_partial_failure
 
         def cleanup():
-            """Cancel active connections"""
+            """Cancel active connections and close async contexts"""
             if self._connection_task and not self._connection_task.done():
                 self._connection_task.cancel()
+
+            # Close the async exit stack if it exists (this properly closes async generators)
+            if self._async_exit_stack is not None:
+                try:
+                    import asyncio
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._async_exit_stack.aclose())
+                    except Exception:
+                        pass
+                    finally:
+                        loop.run_until_complete(asyncio.sleep(0))
+                        loop.close()
+                except Exception:
+                    pass
+
+            # Close all sessions
+            for session in self._sessions:
+                try:
+                    import asyncio
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(session.__aexit__(None, None, None))
+                    except Exception:
+                        pass
+                    finally:
+                        loop.run_until_complete(asyncio.sleep(0))
+                        loop.close()
+                except Exception:
+                    pass
+
+            self._sessions = []
 
         # Setup cleanup logic before the instance is garbage collected
         self._cleanup_finalizer = weakref.finalize(self, cleanup)

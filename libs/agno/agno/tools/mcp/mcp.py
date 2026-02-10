@@ -136,9 +136,47 @@ class MCPTools(Toolkit):
         self._session_context = None
 
         def cleanup():
-            """Cancel active connections"""
+            """Cancel active connections and close async contexts"""
             if self._connection_task and not self._connection_task.done():
                 self._connection_task.cancel()
+
+            # Close session context if it exists (this properly closes async generators)
+            if self._session_context is not None:
+                try:
+                    # Call __aexit__ synchronously by running it in a new event loop
+                    import asyncio
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._session_context.__aexit__(None, None, None))
+                    except Exception:
+                        pass
+                    finally:
+                        loop.run_until_complete(asyncio.sleep(0))
+                        loop.close()
+                except Exception:
+                    pass
+
+            # Close main context if it exists
+            if self._context is not None:
+                try:
+                    import asyncio
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._context.__aexit__(None, None, None))
+                    except Exception:
+                        pass
+                    finally:
+                        loop.run_until_complete(asyncio.sleep(0))
+                        loop.close()
+                except Exception:
+                    pass
+
+            self._session_context = None
+            self._context = None
 
         # Setup cleanup logic before the instance is garbage collected
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
