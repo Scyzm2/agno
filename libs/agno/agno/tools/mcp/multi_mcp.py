@@ -136,47 +136,63 @@ class MultiMCPTools(Toolkit):
         def cleanup():
             """Cancel active connections and close async contexts"""
             import asyncio
+            import logging
+
+            logging.debug(f"[MultiMCPTools Cleanup] Starting cleanup for {id(self)}")
 
             if self._connection_task and not self._connection_task.done():
+                logging.debug(f"[MultiMCPTools Cleanup] Cancelling connection task")
                 self._connection_task.cancel()
 
             async def _close_all():
                 """Properly close all async contexts and sessions"""
                 try:
                     if self._async_exit_stack is not None:
+                        logging.debug(f"[MultiMCPTools Cleanup] Closing async exit stack")
                         await self._async_exit_stack.aclose()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.debug(f"[MultiMCPTools Cleanup] Error closing exit stack: {e}")
                 for session in self._sessions:
                     try:
+                        logging.debug(f"[MultiMCPTools Cleanup] Closing session")
                         await session.__aexit__(None, None, None)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.debug(f"[MultiMCPTools Cleanup] Error closing session: {e}")
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
+                    logging.debug(f"[MultiMCPTools Cleanup] Running _close_all in loop {id(loop)}")
                     loop.run_until_complete(_close_all())
+                    logging.debug(f"[MultiMCPTools Cleanup] After _close_all, checking pending tasks")
                     loop.run_until_complete(asyncio.sleep(0.1))
                     pending = asyncio.all_tasks(loop)
+                    logging.debug(f"[MultiMCPTools Cleanup] Found {len(pending)} pending tasks")
                     for task in pending:
                         if not task.done():
                             task.cancel()
                     if pending:
+                        logging.debug(f"[MultiMCPTools Cleanup] Awaiting {len(pending)} cancelled tasks")
                         loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                except Exception:
-                    pass
+                    logging.debug(f"[MultiMCPTools Cleanup] All tasks processed")
+                except Exception as e:
+                    logging.debug(f"[MultiMCPTools Cleanup] Error in cleanup loop: {e}")
                 finally:
                     try:
+                        logging.debug(f"[MultiMCPTools Cleanup] Closing loop")
                         loop.close()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except Exception as e:
+                        logging.debug(f"[MultiMCPTools Cleanup] Error closing loop: {e}")
+            except Exception as e:
+                logging.debug(f"[MultiMCPTools Cleanup] Error creating/using loop: {e}")
 
             self._sessions = []
+            logging.debug(f"[MultiMCPTools Cleanup] Cleanup complete for {id(self)}")
 
+        import logging
+
+        logging.debug(f"[MultiMCPTools Init] Creating MultiMCPTools instance {id(self)}")
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
 
     @property

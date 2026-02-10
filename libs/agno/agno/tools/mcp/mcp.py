@@ -138,48 +138,64 @@ class MCPTools(Toolkit):
         def cleanup():
             """Cancel active connections and close async contexts"""
             import asyncio
+            import logging
+
+            logging.debug(f"[MCPTools Cleanup] Starting cleanup for {id(self)}")
 
             if self._connection_task and not self._connection_task.done():
+                logging.debug(f"[MCPTools Cleanup] Cancelling connection task")
                 self._connection_task.cancel()
 
             async def _close_contexts():
                 """Properly close all async contexts"""
                 try:
                     if self._session_context is not None:
+                        logging.debug(f"[MCPTools Cleanup] Closing session context")
                         await self._session_context.__aexit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.debug(f"[MCPTools Cleanup] Error closing session context: {e}")
                 try:
                     if self._context is not None:
+                        logging.debug(f"[MCPTools Cleanup] Closing context")
                         await self._context.__aexit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.debug(f"[MCPTools Cleanup] Error closing context: {e}")
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
+                    logging.debug(f"[MCPTools Cleanup] Running _close_contexts in loop {id(loop)}")
                     loop.run_until_complete(_close_contexts())
+                    logging.debug(f"[MCPTools Cleanup] After _close_contexts, checking pending tasks")
                     loop.run_until_complete(asyncio.sleep(0.1))
                     pending = asyncio.all_tasks(loop)
+                    logging.debug(f"[MCPTools Cleanup] Found {len(pending)} pending tasks")
                     for task in pending:
                         if not task.done():
                             task.cancel()
                     if pending:
+                        logging.debug(f"[MCPTools Cleanup] Awaiting {len(pending)} cancelled tasks")
                         loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                except Exception:
-                    pass
+                    logging.debug(f"[MCPTools Cleanup] All tasks processed")
+                except Exception as e:
+                    logging.debug(f"[MCPTools Cleanup] Error in cleanup loop: {e}")
                 finally:
                     try:
+                        logging.debug(f"[MCPTools Cleanup] Closing loop")
                         loop.close()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except Exception as e:
+                        logging.debug(f"[MCPTools Cleanup] Error closing loop: {e}")
+            except Exception as e:
+                logging.debug(f"[MCPTools Cleanup] Error creating/using loop: {e}")
 
             self._session_context = None
             self._context = None
+            logging.debug(f"[MCPTools Cleanup] Cleanup complete for {id(self)}")
 
+        import logging
+
+        logging.debug(f"[MCPTools Init] Creating MCPTools instance {id(self)}")
         self._cleanup_finalizer = weakref.finalize(self, cleanup)
 
     @property
