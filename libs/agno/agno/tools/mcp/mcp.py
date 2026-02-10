@@ -1,4 +1,3 @@
-import weakref
 from dataclasses import asdict
 from datetime import timedelta
 from typing import Any, Literal, Optional, Union
@@ -135,65 +134,11 @@ class MCPTools(Toolkit):
         self._context = None
         self._session_context = None
 
-        def cleanup():
-            """Cancel active connections and close async contexts"""
-            import asyncio
-
-            log_debug(f"[MCPTools Cleanup] Starting cleanup for {id(self)}")
-
-            if self._connection_task and not self._connection_task.done():
-                log_debug(f"[MCPTools Cleanup] Cancelling connection task")
-                self._connection_task.cancel()
-
-            async def _close_contexts():
-                """Properly close all async contexts"""
-                try:
-                    if self._session_context is not None:
-                        log_debug(f"[MCPTools Cleanup] Closing session context")
-                        await self._session_context.__aexit__(None, None, None)
-                except Exception as e:
-                    log_debug(f"[MCPTools Cleanup] Error closing session context: {e}")
-                try:
-                    if self._context is not None:
-                        log_debug(f"[MCPTools Cleanup] Closing context")
-                        await self._context.__aexit__(None, None, None)
-                except Exception as e:
-                    log_debug(f"[MCPTools Cleanup] Error closing context: {e}")
-
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    log_debug(f"[MCPTools Cleanup] Running _close_contexts in loop {id(loop)}")
-                    loop.run_until_complete(_close_contexts())
-                    log_debug(f"[MCPTools Cleanup] After _close_contexts, checking pending tasks")
-                    loop.run_until_complete(asyncio.sleep(0.1))
-                    pending = asyncio.all_tasks(loop)
-                    log_debug(f"[MCPTools Cleanup] Found {len(pending)} pending tasks")
-                    for task in pending:
-                        if not task.done():
-                            task.cancel()
-                    if pending:
-                        log_debug(f"[MCPTools Cleanup] Awaiting {len(pending)} cancelled tasks")
-                        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                    log_debug(f"[MCPTools Cleanup] All tasks processed")
-                except Exception as e:
-                    log_debug(f"[MCPTools Cleanup] Error in cleanup loop: {e}")
-                finally:
-                    try:
-                        log_debug(f"[MCPTools Cleanup] Closing loop")
-                        loop.close()
-                    except Exception as e:
-                        log_debug(f"[MCPTools Cleanup] Error closing loop: {e}")
-            except Exception as e:
-                log_debug(f"[MCPTools Cleanup] Error creating/using loop: {e}")
-
-            self._session_context = None
-            self._context = None
-            log_debug(f"[MCPTools Cleanup] Cleanup complete for {id(self)}")
-
-        log_debug(f"[MCPTools Init] Creating MCPTools instance {id(self)}")
-        self._cleanup_finalizer = weakref.finalize(self, cleanup)
+        # NOTE: We intentionally do NOT register a weakref.finalize cleanup here.
+        # MCPTools connections must remain alive throughout the agent's lifetime.
+        # Explicit cleanup should be done by calling close() method when done.
+        # Auto-cleanup during garbage collection causes "ClosedResourceError" because
+        # the agent may still need to use the connection.
 
     @property
     def initialized(self) -> bool:
