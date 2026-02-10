@@ -1362,7 +1362,10 @@ class Model(ABC):
                 # to give the model another chance to respond or call more tools.
                 # The model may have encountered an error or simply needs to think further.
                 if assistant_message.content in (None, "") and function_call_count > 0:
-                    log_debug("Empty response after tool calls. Continuing loop to allow model to respond further.", log_level=1)
+                    log_debug(
+                        "Empty response after tool calls. Continuing loop to allow model to respond further.",
+                        log_level=1,
+                    )
                     continue
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
@@ -1602,7 +1605,10 @@ class Model(ABC):
                 # to give the model another chance to respond or call more tools.
                 # The model may have encountered an error or simply needs to think further.
                 if assistant_message.content in (None, "") and function_call_count > 0:
-                    log_debug("Empty response after tool calls. Continuing loop to allow model to respond further.", log_level=1)
+                    log_debug(
+                        "Empty response after tool calls. Continuing loop to allow model to respond further.",
+                        log_level=1,
+                    )
                     continue
 
                 log_debug("No continuation signal. Breaking loop.", log_level=1)
@@ -2379,21 +2385,30 @@ class Model(ABC):
 
         # Stream events from the queue as they arrive
         completed_generators_count = 0
-        while completed_generators_count < active_generators_count:
-            try:
-                event = await event_queue.get()
+        try:
+            while completed_generators_count < active_generators_count:
+                try:
+                    event = await event_queue.get()
 
-                # Check if this is a completion signal
-                if isinstance(event, tuple) and event[0] == "GENERATOR_DONE":
-                    completed_generators_count += 1
-                    continue
+                    # Check if this is a completion signal
+                    if isinstance(event, tuple) and event[0] == "GENERATOR_DONE":
+                        completed_generators_count += 1
+                        continue
 
-                # Yield the actual event
-                yield event
+                    # Yield the actual event
+                    yield event
 
-            except Exception as e:
-                log_error(f"Error processing async generator event: {e}")
-                break
+                except Exception as e:
+                    log_error(f"Error processing async generator event: {e}")
+                    break
+        finally:
+            # Cancel any pending generator tasks to prevent orphaned tasks
+            for task in generator_tasks:
+                if not task.done():
+                    task.cancel()
+            # Await all tasks to ensure proper cleanup
+            if generator_tasks:
+                await asyncio.gather(*generator_tasks, return_exceptions=True)
 
         # Now process all results (non-async generators and completed async generators)
         for i, original_result in enumerate(results):
