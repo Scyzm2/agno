@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 from datetime import timedelta
 from typing import Any, Literal, Optional, Union
@@ -134,6 +135,10 @@ class MCPTools(Toolkit):
         self._context = None
         self._session_context = None
 
+        # Instance-specific lock to prevent simultaneous reconnection attempts
+        # This avoids issues with global locks when event loops are recreated
+        self._reconnect_lock = None
+
         # NOTE: We intentionally do NOT register a weakref.finalize cleanup here.
         # MCPTools connections must remain alive throughout the agent's lifetime.
         # Explicit cleanup should be done by calling close() method when done.
@@ -156,6 +161,11 @@ class MCPTools(Toolkit):
     async def connect(self, force: bool = False):
         """Initialize a MCPTools instance and connect to the contextual MCP server"""
         log_debug(f"[MCPTools] connect() called for {id(self)}, force={force}, _initialized={self._initialized}")
+
+        # Initialize the instance-specific lock if not already done
+        # This must happen at runtime, not in __init__, to ensure proper event loop context
+        if self._reconnect_lock is None:
+            self._reconnect_lock = asyncio.Lock()
 
         if force:
             # Clean up the session and context so we force a new connection

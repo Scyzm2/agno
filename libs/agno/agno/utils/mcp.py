@@ -16,9 +16,6 @@ except (ImportError, ModuleNotFoundError):
 from agno.media import Image
 from agno.tools.function import ToolResult
 
-# Global lock to prevent simultaneous reconnection attempts
-_reconnect_lock = asyncio.Lock()
-
 
 def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=None):
     """
@@ -61,8 +58,14 @@ def get_entrypoint_for_tool(tool: MCPTool, session: ClientSession, mcp_tools=Non
             if mcp_tools is not None:
                 log_debug(f"Attempting to reconnect MCP tools...")
                 try:
-                    # Use a lock to prevent simultaneous reconnection attempts
-                    async with _reconnect_lock:
+                    # Use instance-specific lock to prevent simultaneous reconnection attempts
+                    # This avoids issues with global locks when event loops are recreated
+                    reconnect_lock = getattr(mcp_tools, "_reconnect_lock", None)
+                    if reconnect_lock is None:
+                        # Lock not initialized yet, create a temporary one
+                        reconnect_lock = asyncio.Lock()
+
+                    async with reconnect_lock:
                         log_debug(f"Reconnection lock acquired for '{tool_name}'")
                         await mcp_tools.connect(force=True)
                         current_session = mcp_tools.session
